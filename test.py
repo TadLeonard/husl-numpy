@@ -9,8 +9,14 @@ def test_f():
     val_b = old_husl.epsilon - 0.003
     assert old_husl.f(val_a) == husl.f(np.array([val_a]))[0]
     assert old_husl.f(val_b) == husl.f(np.array([val_b]))[0]
-    print(old_husl.f(val_a), husl.f(np.array([val_a]))[0])
-    print(old_husl.f(val_b), husl.f(np.array([val_b]))[0])
+
+
+def test_channel():
+    a = np.zeros((40, 40, 3))
+    a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40
+    assert np.all(husl._channel(a, 0) == 20)
+    assert np.all(husl._channel(a, 1) == 30)
+    assert np.all(husl._channel(a, 2) == 40)
 
 
 def print_husl():
