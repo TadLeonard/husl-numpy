@@ -9,8 +9,8 @@ L_MAX = 99.9999999
 L_MIN =  0.0000001
 
 
-def rgb_to_husl(rgb: ndarray) -> ndarray:
-    return lch_to_husl(rgb_to_lch(rgb))
+def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
+    return lch_to_husl(rgb_to_lch(rgb_nd))
 
 
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
@@ -19,19 +19,21 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     L_large = L_vals > L_MAX
     L_small = L_vals < L_MIN
     husl_L_large = husl_nd[L_large]
-    _channel(husl_L_large, 0)[:] = _channel(husl_nd, 2)
+    _channel(husl_L_large, 0)[:] = _channel(husl_L_large, 2)
     _channel(husl_L_large, 2)[:] = 100.0
-    _channel(husl_L_small, 0)[:] = _channel(husl_nd, 2)
+    husl_L_small = husl_nd[L_small]
+    _channel(husl_L_small, 0)[:] = _channel(husl_L_small, 2)
     mx = _max_lh_chroma(lch_nd) 
     C_vals =  _channel(lch_nd, 1)
     S = C_vals / mx * 100.0
     _channel(husl_nd, 1)[:] = S
+    return husl_nd
 
 
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     H_vals = _channel(lch, 2)
     hrad = H_vals / 360.0 * math.pi * 2.0
-    lengths = np.ndarray((6, lch.shape[0]))
+    lengths = np.ndarray((6,) + lch.shape[:-1])
     L_vals = _channel(lch, 0)
     for i, line in enumerate(_bounds(L_vals)):
         lengths[i] = _ray_length(hrad, line)
@@ -46,14 +48,16 @@ def _ray_length(theta: ndarray, line: list) -> ndarray:
 
 def _bounds(l_nd: ndarray) -> list:
     sub1 = ((l_nd + 16.0) ** 3.0) / 1560896.0
-    sub2 = sub1.copy()
-    sub2[sub2 < husl.epsilon] = (l_nd / husl.kappa)
+    sub2 = sub1.flatten()  # flat copy
+    lt_epsilon = sub2 < husl.epsilon
+    sub2[lt_epsilon] = (l_nd.flat[lt_epsilon] / husl.kappa)
+    sub2 = sub2.reshape(sub1.shape)
     bounds = []
     for m1, m2, m3 in husl.m:
         for t in (0, 1):
             top1 = sub2 * (284517.0 * m1 - 94839.0 * m3)
-            top2 = L * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
-                   - ( L * 769860.0 * t)
+            top2 = l_nd * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
+                   - ( l_nd * 769860.0 * t)
             bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
             bounds.append((top1 / bottom, top2 / bottom))
     return bounds
@@ -103,11 +107,12 @@ def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
 
 
 def f(y_nd: ndarray) -> ndarray:
-    f_nd = np.zeros(y_nd.shape)
-    gt = y_nd > husl.esilon
-    f_nd[gt] = (y_nd / husl.refy) ** (1.0 / 3.0) * 116 - 16
-    f_nd[~gt] = (y_nd / husl.refY) * husl.kappa
-    return f_nd
+    y_flat = y_nd.flatten()
+    f_flat = np.zeros(y_flat.shape)
+    gt = y_flat > husl.epsilon
+    f_flat[gt] = (y_flat[gt] / husl.refY) ** (1.0 / 3.0) * 116 - 16
+    f_flat[~gt] = (y_flat[~gt] / husl.refY) * husl.kappa
+    return f_flat.reshape(y_nd.shape)
     
 
 def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
