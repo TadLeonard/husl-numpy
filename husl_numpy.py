@@ -81,12 +81,25 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     X_vals = _channel(xyz_nd, 0)
     Y_vals = _channel(xyz_nd, 1)
     Z_vals = _channel(xyz_nd, 2)
-    U_var = 4 * 
+    U_var = (4 * X_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
+    V_var = (9 * Y_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
+    L_vals = _channel(luv_nd, 0)
+    L_vals[:] = f(Y_vals)
+    luv_nd[L_vals == 0] = 0
+    U_vals = _channel(luv_nd, 1)
+    U_vals[:] = L_vals * 13 * (U_var - husl.refU)
+    V_vals = _channel(luv_nd, 2)
+    V_vals[:] = L_vals * 13 * (V_var - husl.refV)
+    return luv_nd
 
 
-def f(t_nd: ndarray) -> ndarray:
-    pass 
-
+def f(y_nd: ndarray) -> ndarray:
+    f_nd = np.zeros(y_nd.shape)
+    gt = y_nd > husl.esilon
+    f_nd[gt] = (y_nd / husl.refy) ** (1.0 / 3.0) * 116 - 16
+    f_nd[~gt] = (y_nd / husl.refY) * husl.kappa
+    return f_nd
+    
 
 def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
     return data[..., last_dim_idx]
