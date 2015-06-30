@@ -4,6 +4,13 @@ import husl_numpy as husl
 import husl as old_husl
 
 
+def test_rgb_to_zyx():
+    tests = [[0, 0, 0], [255, 255, 255], [130, 20, 55]]
+    rgb_tests = [np.array(t) / 255.0 for t in tests]
+    for rgb in rgb_tests:
+        pass
+
+
 def test_f():
     val_a = old_husl.epsilon + 0.4
     val_b = old_husl.epsilon - 0.003
@@ -17,6 +24,18 @@ def test_channel():
     assert np.all(husl._channel(a, 0) == 20)
     assert np.all(husl._channel(a, 1) == 30)
     assert np.all(husl._channel(a, 2) == 40)
+
+
+def test_channel_assignment():
+    a = np.zeros((40, 40, 3))
+    a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40
+    husl._channel(a, 0)[:] = 1
+    husl._channel(a, 1)[:] = 2
+    husl._channel(a, 2)[:] = 3
+    assert np.all(husl._channel(a, 0) == 1)
+    assert np.all(husl._channel(a, 1) == 2)
+    assert np.all(husl._channel(a, 2) == 3)
+    
 
 
 def print_husl():
