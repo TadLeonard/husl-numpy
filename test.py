@@ -1,6 +1,16 @@
+import numpy as np
+import imread
 import husl_numpy as husl
 import husl as old_husl
-import imread
+
+
+def test_f():
+    val_a = old_husl.epsilon + 0.4
+    val_b = old_husl.epsilon - 0.003
+    assert old_husl.f(val_a) == husl.f(np.array([val_a]))[0]
+    assert old_husl.f(val_b) == husl.f(np.array([val_b]))[0]
+    print(old_husl.f(val_a), husl.f(np.array([val_a]))[0])
+    print(old_husl.f(val_b), husl.f(np.array([val_b]))[0])
 
 
 def print_husl():
