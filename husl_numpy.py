@@ -93,6 +93,15 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_nd
 
 
+def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
+    a = 0.055  # mysterious constant used in husl.to_linear
+    xyz_nd = np.zeros(rgb_nd.shape)
+    gt = rgb_nd > 0.04045
+    xyz_nd[gt] = ((rgb_nd[gt] + a) / (1 + a)) ** 2.4
+    xyz_nd[~gt] = rgb_nd[~gt] / 12.92
+    return xyz_nd
+
+
 def f(y_nd: ndarray) -> ndarray:
     f_nd = np.zeros(y_nd.shape)
     gt = y_nd > husl.esilon
