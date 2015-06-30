@@ -4,11 +4,13 @@ import husl_numpy as husl
 import husl as old_husl
 
 
-def test_rgb_to_zyx():
-    tests = [[0, 0, 0], [255, 255, 255], [130, 20, 55]]
-    rgb_tests = [np.array(t) / 255.0 for t in tests]
-    for rgb in rgb_tests:
-        pass
+def test_rgb_to_xyz():
+    tests = [[0, 0, 0], [1, 1, 1], [0.52, 0.1, 0.25]]
+    for rgb in tests:
+        nd = np.ndarray((1, 3), float)
+        nd[:] = rgb
+        nd /= 255.0
+        assert np.all(husl.rgb_to_xyz(nd)[0] == old_husl.rgb_to_xyz(rgb))
 
 
 def test_f():
