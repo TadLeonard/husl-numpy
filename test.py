@@ -5,18 +5,40 @@ import husl as old_husl
 
 
 def test_rgb_to_xyz():
-    tests = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25]]
-    for rgb in tests:
-        nd = np.ndarray((1, 3), float)
-        nd[:] = rgb
-        assert np.all(husl.rgb_to_xyz(nd)[0] == old_husl.rgb_to_xyz(rgb))
+    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
+               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = np.asarray(rgb_arr)
+    xyz_arr = husl.rgb_to_xyz(rgb_arr)
+    for xyz, rgb in zip(xyz_arr, rgb_arr):
+        diff =  xyz - old_husl.rgb_to_xyz(rgb)
+        assert np.all(diff < 0.0001)
 
 
 def test_to_linear():
-    val_a = 0.055 + 0.030
+    val_a = 0.055 + 0.330
     val_b = 0.055 - 0.020
     assert old_husl.to_linear(val_a) == husl._to_linear(np.array([val_a]))[0]
     assert old_husl.to_linear(val_b) == husl._to_linear(np.array([val_b]))[0]
+
+
+def test_dot():
+    a = np.array([0.1, 0.2, 0.3])
+    b = np.ndarray((3, 3))
+    b[:] = a
+    c = np.ndarray((3, 3, 3))
+    c[:] = a
+    for arr in (b, c):
+        _check_dot(arr)
+
+
+def _check_dot(test_array):
+    m_inv = old_husl.m_inv
+    new_dot = husl._dot_product(m_inv, test_array)
+    flat_input = test_array.reshape((test_array.size // 3, 3))
+    flat_output = new_dot.reshape((new_dot.size // 3, 3))
+    for new_dot, rgb in zip(flat_output, flat_input):
+        old_dot = list(map(lambda row: old_husl.dot_product(row, rgb), m_inv))
+        assert np.all(new_dot == old_dot)
 
 
 def test_f():
@@ -45,14 +67,12 @@ def test_channel_assignment():
     assert np.all(husl._channel(a, 2) == 3)
     
 
-
 def print_husl():
     img = imread.imread("examples/gelface.jpg")
     img_float = img / 255.0
     new = husl.rgb_to_husl(img_float)
     old = old_husl.rgb_to_husl(*img_float[0, 0])
     print(old, new[0, 0])
-    
 
 
 if __name__ == "__main__":
