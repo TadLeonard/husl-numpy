@@ -5,19 +5,25 @@ import husl as old_husl
 
 
 def test_rgb_to_xyz():
-    tests = [[0, 0, 0], [1, 1, 1], [0.52, 0.1, 0.25]]
+    tests = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25]]
     for rgb in tests:
         nd = np.ndarray((1, 3), float)
         nd[:] = rgb
-        nd /= 255.0
         assert np.all(husl.rgb_to_xyz(nd)[0] == old_husl.rgb_to_xyz(rgb))
+
+
+def test_to_linear():
+    val_a = 0.055 + 0.030
+    val_b = 0.055 - 0.020
+    assert old_husl.to_linear(val_a) == husl._to_linear(np.array([val_a]))[0]
+    assert old_husl.to_linear(val_b) == husl._to_linear(np.array([val_b]))[0]
 
 
 def test_f():
     val_a = old_husl.epsilon + 0.4
     val_b = old_husl.epsilon - 0.003
-    assert old_husl.f(val_a) == husl.f(np.array([val_a]))[0]
-    assert old_husl.f(val_b) == husl.f(np.array([val_b]))[0]
+    assert old_husl.f(val_a) == husl._f(np.array([val_a]))[0]
+    assert old_husl.f(val_b) == husl._f(np.array([val_b]))[0]
 
 
 def test_channel():
