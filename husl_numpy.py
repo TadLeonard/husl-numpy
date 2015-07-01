@@ -99,7 +99,7 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
 
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
-    
+    return _dot_product(husl.m_inv, rgbl)
 
 
 def _f(y_nd: ndarray) -> ndarray:
@@ -119,6 +119,17 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     xyz_nd[~gt] = rgb_nd[~gt] / 12.92
     return xyz_nd
     
+
+def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
+    scalars = np.asarray(scalars)
+    assert rgb_nd.shape[-1] == 3
+    assert scalars.shape == (3, 3)
+    sum_axis = len(rgb_nd.shape) - 1
+    x = np.sum(scalars[0] * rgb_nd, sum_axis)
+    y = np.sum(scalars[1] * rgb_nd, sum_axis)
+    z = np.sum(scalars[2] * rgb_nd, sum_axis)
+    return np.dstack((x, y, z)).squeeze()
+
 
 def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
     return data[..., last_dim_idx]
