@@ -88,7 +88,7 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     U_var = (4 * X_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
     V_var = (9 * Y_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
     L_vals = _channel(luv_nd, 0)
-    L_vals[:] = f(Y_vals)
+    L_vals[:] = _f(Y_vals)
     luv_nd[L_vals == 0] = 0
     U_vals = _channel(luv_nd, 1)
     U_vals[:] = L_vals * 13 * (U_var - husl.refU)
@@ -98,21 +98,26 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
 
 
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
-    a = 0.055  # mysterious constant used in husl.to_linear
-    xyz_nd = np.zeros(rgb_nd.shape)
-    gt = rgb_nd > 0.04045
-    xyz_nd[gt] = ((rgb_nd[gt] + a) / (1 + a)) ** 2.4
-    xyz_nd[~gt] = rgb_nd[~gt] / 12.92
-    return xyz_nd
+    rgbl = _to_linear(rgb_nd)
+    
 
 
-def f(y_nd: ndarray) -> ndarray:
+def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape)
     gt = y_flat > husl.epsilon
     f_flat[gt] = (y_flat[gt] / husl.refY) ** (1.0 / 3.0) * 116 - 16
     f_flat[~gt] = (y_flat[~gt] / husl.refY) * husl.kappa
     return f_flat.reshape(y_nd.shape)
+
+
+def _to_linear(rgb_nd: ndarray) -> ndarray:
+    a = 0.055  # mysterious constant used in husl.to_linear
+    xyz_nd = np.zeros(rgb_nd.shape)
+    gt = rgb_nd > 0.04045
+    xyz_nd[gt] = ((rgb_nd[gt] + a) / (1 + a)) ** 2.4
+    xyz_nd[~gt] = rgb_nd[~gt] / 12.92
+    return xyz_nd
     
 
 def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
