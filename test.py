@@ -4,6 +4,16 @@ import husl_numpy as husl
 import husl as old_husl
 
 
+def test_rgb_to_husl():
+    img = imread.imread("examples/gelface.jpg")
+    img /= 255.0
+    husl_new = husl.rgb_to_husl(img)
+    for row in range(husl_new.shape[0]):
+        for col in range(husl_new.shape[1]):
+            husl_old = old_husl.rgb_to_husl(*img[row, col]) 
+            assert np.all(husl_new == husl_old)
+
+
 def test_rgb_to_xyz():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
