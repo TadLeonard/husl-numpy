@@ -5,8 +5,7 @@ import husl as old_husl
 
 
 def test_rgb_to_husl():
-    img = imread.imread("examples/gelface.jpg")
-    img /= 255.0
+    img = _img()
     husl_new = husl.rgb_to_husl(img)
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
@@ -14,6 +13,15 @@ def test_rgb_to_husl():
             assert np.all(husl_new[row, col] == husl_old)
 
 
+def test_lch_to_husl_img():
+    img = _img()
+    lch_new = husl.rgb_to_lch(img)
+    for row in range(lch_new.shape[0]):
+        for col in range(lch_new.shape[1]):
+            lch_old = old_husl.rgb_to_lch(*img[row, col]) 
+            assert np.all(lch_new[row, col] == lch_old)
+
+   
 def test_lch_to_husl():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
@@ -53,6 +61,17 @@ def test_luv_to_lch():
         assert np.all(diff < 0.0001)
 
 
+def test_luv_to_lch_img():
+    img = _img()
+    xyz_arr = husl.rgb_to_xyz(img)
+    luv_arr = husl.xyz_to_luv(img)
+    lch_new = husl.luv_to_lch(img)
+    for row in range(lch_new.shape[0]):
+        for col in range(lch_new.shape[1]):
+            lch_old = old_husl.rgb_to_lch(*img[row, col]) 
+            assert np.all(lch_new[row, col] == lch_old)
+
+
 def test_rgb_to_lch():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
@@ -86,6 +105,16 @@ def test_rgb_to_xyz():
     for xyz, rgb in zip(xyz_arr, rgb_arr):
         diff =  xyz - old_husl.rgb_to_xyz(rgb)
         assert np.all(diff < 0.0001)
+
+
+def test_rgb_to_zyx_3d():
+    img = _img()
+    xyz_arr = husl.rgb_to_xyz(img)
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            xyz = xyz_arr[row, col]
+            diff =  xyz - old_husl.rgb_to_xyz(img[row, col])
+            assert np.all(diff < 0.0001)
 
 
 def test_to_linear():
@@ -142,11 +171,14 @@ def test_channel_assignment():
     
 
 def print_husl():
-    img = imread.imread("examples/gelface.jpg")
-    img_float = img / 255.0
+    img_float = _img()
     new = husl.rgb_to_husl(img_float)
     old = old_husl.rgb_to_husl(*img_float[0, 0])
     print(old, new[0, 0])
+
+
+def _img():
+    return imread.imread("examples/gelface.jpg") / 255.0
 
 
 if __name__ == "__main__":
