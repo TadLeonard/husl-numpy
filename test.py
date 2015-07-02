@@ -18,22 +18,27 @@ def test_lch_to_husl():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
     rgb_arr = np.asarray(rgb_arr)
-    lch_arr = husl.rgb_to_husl(rgb_arr)
+    lch_arr = husl.rgb_to_lch(rgb_arr)
     hsl_arr = husl.lch_to_husl(lch_arr)
     for hsl, lch in zip(hsl_arr, lch_arr):
         diff =  hsl - old_husl.lch_to_husl(lch)
         assert np.all(diff < 0.0001)
 
 
+#def test_bounds():
+    
+
+
 def test_ray_length():
     thetas = np.asarray([0.1, 4.0, 44.4, 500.2])
     lines = (1.0, 4.0), (0.01, 2.0), (3.5, 0.0), (0.0, 0.0)
     new_lens = [husl._ray_length(thetas, l) for l in lines]
-    print(new_lens, "<<<<<<<<<<<<<<<<")
     for i, (new_len, theta, line) in enumerate(zip(new_lens, thetas, lines)):
         old_len = old_husl.length_of_ray_until_intersect(theta, line)
-        if new_len[i] > 0 and np.isfinite(new_len[i]):
+        if new_len[i] > -0.0001 and np.isfinite(new_len[i]):
             assert new_len[i] == old_len
+        elif old_len is not None:
+            assert False, "Expected a valid length from husl._ray_length"
 
 
 def test_luv_to_lch():
