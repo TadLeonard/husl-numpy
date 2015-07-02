@@ -23,7 +23,15 @@ def test_lch_to_husl():
     for hsl, lch in zip(hsl_arr, lch_arr):
         diff =  hsl - old_husl.lch_to_husl(lch)
         assert np.all(diff < 0.0001)
-    
+
+
+def test_ray_length():
+    thetas = [0.1, 4.0, 44.4, 500.2]
+    lines = (1.0, 4.0), (0.01, 2.0), (3.5, 0.0), (0.0, 0.0)
+    new_lens = [husl._ray_length(thetas, l) for l in lines]
+    for new_len, theta, line in zip(new_lens, thetas, lines):
+        old_len = old_husl.length_of_ray_until_intersect(theta, line)
+        assert new_len == old_len
 
 
 def test_luv_to_lch():
