@@ -14,6 +14,18 @@ def test_rgb_to_husl():
             assert np.all(husl_new[row, col] == husl_old)
 
 
+def test_lch_to_husl():
+    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
+               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = np.asarray(rgb_arr)
+    lch_arr = husl.rgb_to_husl(rgb_arr)
+    hsl_arr = husl.lch_to_husl(lch_arr)
+    for hsl, lch in zip(hsl_arr, lch_arr):
+        diff =  hsl - old_husl.lch_to_husl(lch)
+        assert np.all(diff < 0.0001)
+    
+
+
 def test_luv_to_lch():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
