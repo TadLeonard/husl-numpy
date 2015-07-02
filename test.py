@@ -26,6 +26,20 @@ def test_luv_to_lch():
         assert np.all(diff < 0.0001)
 
 
+def test_rgb_to_lch():
+    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
+               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = np.asarray(rgb_arr)
+    xyz_arr = husl.rgb_to_xyz(rgb_arr)
+    luv_arr = husl.xyz_to_luv(xyz_arr)
+    lch_arr = husl.luv_to_lch(luv_arr)
+    lch_arr2 = husl.rgb_to_lch(rgb_arr)
+    assert np.all(lch_arr == lch_arr2)
+    for lch, luv in zip(lch_arr2, luv_arr):
+        diff =  lch - old_husl.luv_to_lch(luv)
+        assert np.all(diff < 0.0001)
+
+
 def test_xyz_to_luv():
     rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
                [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
