@@ -4,7 +4,7 @@ import husl_numpy as husl
 import husl as old_husl
 
 
-def test_rgb_to_husl():
+def test_rgb_to_husl_3d():
     img = _img()
     husl_new = husl.rgb_to_husl(img)
     for row in range(husl_new.shape[0]):
@@ -13,7 +13,7 @@ def test_rgb_to_husl():
             assert np.all(husl_new[row, col] == husl_old)
 
 
-def test_lch_to_husl_img():
+def test_lch_to_husl_3d():
     img = _img()
     lch_new = husl.rgb_to_lch(img)
     for row in range(lch_new.shape[0]):
@@ -33,10 +33,6 @@ def test_lch_to_husl():
         assert np.all(diff < 0.0001)
 
 
-#def test_bounds():
-    
-
-
 def test_ray_length():
     thetas = np.asarray([0.1, 4.0, 44.4, 500.2])
     lines = (1.0, 4.0), (0.01, 2.0), (3.5, 0.0), (0.0, 0.0)
@@ -50,8 +46,10 @@ def test_ray_length():
 
 
 def test_luv_to_lch():
-    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
-               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = [[0.07843137, 0.43921569, 0.84313725],
+               [0.00784314, 0.43921569, 0.78823529],
+               [0.30980392, 0.45490196, 0.56862745],
+               [0.81568627, 0.54117647, 0.27058824]]
     rgb_arr = np.asarray(rgb_arr)
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
@@ -61,11 +59,11 @@ def test_luv_to_lch():
         assert np.all(diff < 0.0001)
 
 
-def test_luv_to_lch_img():
-    img = _img()
+def test_luv_to_lch_3d():
+    img = _img()[:4, :4]
     xyz_arr = husl.rgb_to_xyz(img)
-    luv_arr = husl.xyz_to_luv(img)
-    lch_new = husl.luv_to_lch(img)
+    luv_arr = husl.xyz_to_luv(xyz_arr)
+    lch_new = husl.luv_to_lch(luv_arr)
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
             lch_old = old_husl.rgb_to_lch(*img[row, col]) 
@@ -177,8 +175,13 @@ def print_husl():
     print(old, new[0, 0])
 
 
+IMG_CACHED = [None]
+
+
 def _img():
-    return imread.imread("examples/gelface.jpg") / 255.0
+    if IMG_CACHED[0] is None:
+        IMG_CACHED[0] = imread.imread("examples/gelface.jpg") / 255.0
+    return IMG_CACHED[0]
 
 
 if __name__ == "__main__":
