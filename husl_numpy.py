@@ -26,7 +26,8 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     
     # compute saturation
     mx = _max_lh_chroma(lch_nd)
-    S = C / mx * 100.0
+    with np.errstate(invalid="ignore"):
+        S = C / mx * 100.0
     S[~np.isfinite(S)] = 0.0
     _channel(hsl_nd, 1)[:] = S
     return hsl_nd
