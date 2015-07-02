@@ -15,9 +15,9 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
 
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     husl_nd = lch_nd.copy()
-    L_vals = _channel(lch_nd, 0)
-    L_large = L_vals > L_MAX
-    L_small = L_vals < L_MIN
+    L = _channel(lch_nd, 0)
+    L_large = L > L_MAX
+    L_small = L < L_MIN
     husl_L_large = husl_nd[L_large]
     _channel(husl_L_large, 0)[:] = _channel(husl_L_large, 2)
     _channel(husl_L_large, 2)[:] = 100.0
@@ -34,8 +34,8 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     H_vals = _channel(lch, 2)
     hrad = H_vals / 360.0 * math.pi * 2.0
     lengths = np.ndarray((6,) + lch.shape[:-1])
-    L_vals = _channel(lch, 0)
-    for i, line in enumerate(_bounds(L_vals)):
+    L = _channel(lch, 0)
+    for i, line in enumerate(_bounds(L)):
         lengths[i] = _ray_length(hrad, line)
     return np.nanmin(lengths)
 
@@ -69,11 +69,11 @@ def rgb_to_lch(rgb: ndarray) -> ndarray:
 
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
     lch_nd = luv_nd.copy()
-    U_vals = _channel(luv_nd, 1)
-    V_vals = _channel(luv_nd, 2)
+    U = _channel(luv_nd, 1)
+    V = _channel(luv_nd, 2)
     C_vals = _channel(lch_nd, 1)
-    C_vals[:] = (U_vals ** 2 + V_vals ** 2) ** 0.5
-    hrad = np.arctan2(V_vals, U_vals)
+    C_vals[:] = (U ** 2 + V ** 2) ** 0.5
+    hrad = np.arctan2(V, U)
     H_vals = _channel(lch_nd, 2)
     H_vals[:] = np.degrees(hrad)
     H_vals[H_vals < 0.0] += 360
@@ -81,20 +81,24 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
 
 
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
-    luv_nd = xyz_nd.copy()
-    X_vals = _channel(xyz_nd, 0)
-    Y_vals = _channel(xyz_nd, 1)
-    Z_vals = _channel(xyz_nd, 2)
-    U_var = (4 * X_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
-    V_var = (9 * Y_vals) / (X_vals + (15 * Y_vals) + (3 * Z_vals))
-    L_vals = _channel(luv_nd, 0)
-    L_vals[:] = _f(Y_vals)
-    luv_nd[L_vals == 0] = 0
-    U_vals = _channel(luv_nd, 1)
-    U_vals[:] = L_vals * 13 * (U_var - husl.refU)
-    V_vals = _channel(luv_nd, 2)
-    V_vals[:] = L_vals * 13 * (V_var - husl.refV)
-    return luv_nd
+    flat_shape = (xyz_nd.size // 3, 3)
+    luv_flat = np.zeros(flat_shape)  # flattened xyz n-dim array
+    xyz_flat = xyz_nd.reshape(flat_shape)
+    X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
+
+    with np.errstate(invalid="ignore"):  # ignore divide by zero
+        U_var = (4 * X) / (X + (15 * Y) + (3 * Z))
+        V_var = (9 * Y) / (X + (15 * Y) + (3 * Z))
+    U_var[~np.isfinite(U_var)] = 0  # correct divide by zero
+    V_var[~np.isfinite(V_var)] = 0  # correct divide by zero
+    
+    L, U, V = (_channel(luv_flat, n) for n in range(3))
+    L[:] = _f(Y)
+    luv_flat[L == 0] = 0
+    U[:] = L * 13 * (U_var - husl.refU)
+    V[:] = L * 13 * (V_var - husl.refV)
+    luv_flat = np.nan_to_num(luv_flat)
+    return luv_flat.reshape(xyz_nd.shape)
 
 
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
@@ -133,4 +137,4 @@ def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
 
 def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
     return data[..., last_dim_idx]
-    
+ 
