@@ -11,7 +11,30 @@ def test_rgb_to_husl():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = old_husl.rgb_to_husl(*img[row, col]) 
-            assert np.all(husl_new == husl_old)
+            assert np.all(husl_new[row, col] == husl_old)
+
+
+def test_luv_to_lch():
+    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
+               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = np.asarray(rgb_arr)
+    xyz_arr = husl.rgb_to_xyz(rgb_arr)
+    luv_arr = husl.xyz_to_luv(xyz_arr)
+    lch_arr = husl.luv_to_lch(luv_arr)
+    for lch, luv in zip(lch_arr, luv_arr):
+        diff =  lch - old_husl.luv_to_lch(luv)
+        assert np.all(diff < 0.0001)
+
+
+def test_xyz_to_luv():
+    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
+               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
+    rgb_arr = np.asarray(rgb_arr)
+    xyz_arr = husl.rgb_to_xyz(rgb_arr)
+    luv_arr = husl.xyz_to_luv(xyz_arr)
+    for luv, xyz in zip(luv_arr, xyz_arr):
+        diff =  luv - old_husl.xyz_to_luv(xyz)
+        assert np.all(diff < 0.0001)
 
 
 def test_rgb_to_xyz():
