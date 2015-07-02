@@ -14,20 +14,21 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
 
 
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
-    husl_nd = lch_nd.copy()
-    L = _channel(lch_nd, 0)
-    L_large = L > L_MAX
-    L_small = L < L_MIN
-    husl_L_large = husl_nd[L_large]
-    _channel(husl_L_large, 0)[:] = _channel(husl_L_large, 2)
-    _channel(husl_L_large, 2)[:] = 100.0
-    husl_L_small = husl_nd[L_small]
-    _channel(husl_L_small, 0)[:] = _channel(husl_L_small, 2)
-    mx = _max_lh_chroma(lch_nd) 
-    C_vals =  _channel(lch_nd, 1)
-    S = C_vals / mx * 100.0
-    _channel(husl_nd, 1)[:] = S
-    return husl_nd
+    _L, C, _H = (_channel(lch_nd, n) for n in range(3))
+    hsl_nd = np.zeros(lch_nd.shape, dtype=float)
+    H, S, L = (_channel(hsl_nd, n) for n in range(3))
+    H[:] = _H
+    L[:] = _L
+    
+    # handle lightness extremes
+    hsl_nd[L > L_MAX][..., 1:] = (0.0, 100.0)
+    hsl_nd[L < L_MIN][..., 1:] = 0.0
+    
+    # compute saturation
+    mx = _max_lh_chroma(lch_nd)
+    S = C / mx * 100.0
+    _channel(hsl_nd, 1)[:] = S
+    return hsl_nd
 
 
 def _max_lh_chroma(lch: ndarray) -> ndarray:
@@ -59,7 +60,11 @@ def _bounds(l_nd: ndarray) -> list:
             top2 = l_nd * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
                    - ( l_nd * 769860.0 * t)
             bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
-            bounds.append((top1 / bottom, top2 / bottom))
+            with np.errstate(invalid="ignore"):  # ignore zero division
+                b1, b2 = top1 / bottom, top2 / bottom
+            b1[~np.isfinite(b1)] = 0
+            b2[~np.isfinite(b2)] = 0
+            bounds.append((b1, b2))
     return bounds
         
 
