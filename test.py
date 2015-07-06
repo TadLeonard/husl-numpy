@@ -4,13 +4,30 @@ import husl_numpy as husl
 import husl as old_husl
 
 
+def test_rgb_to_husl():
+    rgb_arr = _img()[:, 0]
+    husl_new = husl.rgb_to_husl(rgb_arr)
+    for row in range(husl_new.shape[0]):
+        husl_old = old_husl.rgb_to_husl(*rgb_arr[row])
+        assert np.all(husl_new[row] == husl_old)
+
+
 def test_rgb_to_husl_3d():
-    img = _img()
-    husl_new = husl.rgb_to_husl(img)
+    rgb_arr = _img()
+    husl_new = husl.rgb_to_husl(rgb_arr)
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
-            husl_old = old_husl.rgb_to_husl(*img[row, col]) 
-            assert np.all(husl_new[row, col] == husl_old)
+            husl_old = old_husl.rgb_to_husl(*rgb_arr[row][col])
+            assert np.all(husl_new[row][col] == husl_old)
+
+
+def test_lch_to_husl():
+    rgb_arr = _img()[:, 0]
+    lch_arr = husl.rgb_to_lch(rgb_arr)
+    hsl_arr = husl.lch_to_husl(lch_arr)
+    for hsl, lch in zip(hsl_arr, lch_arr):
+        diff =  hsl - old_husl.lch_to_husl(lch)
+        assert np.all(diff < 0.0001)
 
 
 def test_lch_to_husl_3d():
@@ -19,19 +36,7 @@ def test_lch_to_husl_3d():
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
             lch_old = old_husl.rgb_to_lch(*img[row, col]) 
-            assert np.all(lch_new[row, col] == lch_old)
-
-   
-def test_lch_to_husl():
-    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
-               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
-    rgb_arr = np.asarray(rgb_arr)
-    lch_arr = husl.rgb_to_lch(rgb_arr)
-    hsl_arr = husl.lch_to_husl(lch_arr)
-    for hsl, lch in zip(hsl_arr, lch_arr):
-        diff =  hsl - old_husl.lch_to_husl(lch)
-        assert np.all(diff < 0.0001)
-
+            assert np.all(lch_new[row, col] == lch_old) 
 
 def test_ray_length():
     thetas = np.asarray([0.1, 4.0, 44.4, 500.2])
@@ -105,7 +110,7 @@ def test_rgb_to_xyz():
         assert np.all(diff < 0.0001)
 
 
-def test_rgb_to_zyx_3d():
+def test_rgb_to_xyz_3d():
     img = _img()
     xyz_arr = husl.rgb_to_xyz(img)
     for row in range(img.shape[0]):
@@ -126,7 +131,7 @@ def test_dot():
     a = np.array([0.1, 0.2, 0.3])
     b = np.ndarray((3, 3))
     b[:] = a
-    c = np.ndarray((3, 3, 3))
+    c = np.ndarray((6, 6, 3))
     c[:] = a
     for arr in (b, c):
         _check_dot(arr)
