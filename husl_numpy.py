@@ -26,7 +26,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     
     # compute saturation
     mx = _max_lh_chroma(lch_nd)
-    with np.errstate(invalid="ignore"):
+    with np.errstate(divide="ignore", invalid="ignore"):
         S = C / mx * 100.0
     S[~np.isfinite(S)] = 0.0
     _channel(hsl_nd, 1)[:] = S
@@ -65,7 +65,7 @@ def _bounds(l_nd: ndarray) -> list:
             top2 = l_nd * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
                    - ( l_nd * 769860.0 * t)
             bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
-            with np.errstate(invalid="ignore"):  # ignore zero division
+            with np.errstate(invalid="ignore"):  # ignore inf division
                 b1, b2 = top1 / bottom, top2 / bottom
             b1[~np.isfinite(b1)] = 0
             b2[~np.isfinite(b2)] = 0
