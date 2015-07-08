@@ -71,20 +71,6 @@ def test_luv_to_lch():
 
 
 def test_luv_to_lch_3d():
-    rgb_arr = _img()
-    xyz_arr = husl.rgb_to_xyz(rgb_arr)
-    luv_arr = husl.xyz_to_luv(xyz_arr)
-    lch_arr = husl.luv_to_lch(luv_arr)
-    for row in range(lch_arr.shape[0]):
-        for col in range(lch_arr.shape[1]):
-            luv = luv_arr[row, col]
-            old_lch = old_husl.luv_to_lch(luv)
-            lch = lch_arr[row, col]
-            diff =  lch - old_husl.luv_to_lch(luv)
-            assert np.all(np.abs(diff) < 0.0001)
-
-
-def test_luv_to_lch_3d():
     img = _img()
     xyz_arr = husl.rgb_to_xyz(img)
     luv_arr = husl.xyz_to_luv(xyz_arr)
@@ -127,15 +113,26 @@ def test_xyz_to_luv():
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     for luv, xyz in zip(luv_arr, xyz_arr):
-        diff =  luv - old_husl.xyz_to_luv(xyz)
+        diff = luv - old_husl.xyz_to_luv(xyz)
         assert np.all(np.abs(diff) < 0.0001)
+
+
+def test_xyz_to_luv_3d():
+    rgb_arr = _img()
+    xyz_arr = husl.rgb_to_xyz(rgb_arr)
+    luv_arr = husl.xyz_to_luv(xyz_arr)
+    for row in range(luv_arr.shape[0]):
+        for col in range(luv_arr.shape[1]):
+            old_luv = old_husl.xyz_to_luv(xyz_arr[row, col]) 
+            diff = luv_arr[row, col] - old_luv
+            assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_rgb_to_xyz():
     rgb_arr = _img()[:, 0]
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     for xyz, rgb in zip(xyz_arr, rgb_arr):
-        diff =  xyz - old_husl.rgb_to_xyz(rgb)
+        diff = xyz - old_husl.rgb_to_xyz(rgb)
         assert np.all(np.abs(diff) < 0.0001)
 
 
@@ -219,8 +216,10 @@ IMG_CACHED = [None]
 
 def _img():
     if IMG_CACHED[0] is None:
-        IMG_CACHED[0] = i = imread.imread("examples/gelface.jpg") / 255.0
-        i[np.all(i == 0, axis=2)] = 0.4
+        i = imread.imread("examples/gelface.jpg") / 255.0
+        i = i[::4, ::4]
+        i[np.all(i == 0.0, axis=2)] = 0.4  # throw out (0,0,0) triplets
+        IMG_CACHED[0] = i
     return IMG_CACHED[0]
 
 
