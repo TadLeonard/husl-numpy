@@ -153,6 +153,9 @@ def test_dot():
     b[:] = a
     c = np.ndarray((6, 6, 3))
     c[:] = a
+    c[0, 1] = (0.0, 1.0, 0.0)
+    c[0, 3] = (1.0, 1.0, 1.0)
+    c[1, 1] = (0.0, 0.0, 0.0)
     for arr in (b, c):
         _check_dot(arr)
 
