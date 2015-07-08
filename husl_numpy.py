@@ -27,15 +27,16 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     # compute saturation
     mx = _max_lh_chroma(lch_nd)
     with np.errstate(divide="ignore", invalid="ignore"):
-        S = C / mx * 100.0
+        S = (C / mx) * 100.0
     S[~np.isfinite(S)] = 0.0
     _channel(hsl_nd, 1)[:] = S
+    
     return hsl_nd
 
 
 def _max_lh_chroma(lch: ndarray) -> ndarray:
-    H_vals = _channel(lch, 2)
-    hrad = H_vals / 360.0 * math.pi * 2.0
+    H = _channel(lch, 2)
+    hrad = H / 360.0 * math.pi * 2.0
     lengths = np.ndarray((6,) + lch.shape[:-1])
     L = _channel(lch, 0)
     for i, line in enumerate(_bounds(L)):
