@@ -123,9 +123,7 @@ def test_rgb_to_lch_chain():
 
 
 def test_xyz_to_luv():
-    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
-               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
-    rgb_arr = np.asarray(rgb_arr)
+    rgb_arr = _img()[:, 0]
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     for luv, xyz in zip(luv_arr, xyz_arr):
@@ -134,9 +132,7 @@ def test_xyz_to_luv():
 
 
 def test_rgb_to_xyz():
-    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
-               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
-    rgb_arr = np.asarray(rgb_arr)
+    rgb_arr = _img()[:, 0]
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     for xyz, rgb in zip(xyz_arr, rgb_arr):
         diff =  xyz - old_husl.rgb_to_xyz(rgb)
