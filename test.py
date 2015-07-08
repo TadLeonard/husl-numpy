@@ -60,11 +60,7 @@ def test_ray_length():
 
 
 def test_luv_to_lch():
-    rgb_arr = [[0.07843137, 0.43921569, 0.84313725],
-               [0.00784314, 0.43921569, 0.78823529],
-               [0.30980392, 0.45490196, 0.56862745],
-               [0.81568627, 0.54117647, 0.27058824]]
-    rgb_arr = np.asarray(rgb_arr)
+    rgb_arr = _img()[:, 0]
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     lch_arr = husl.luv_to_lch(luv_arr)
@@ -74,7 +70,7 @@ def test_luv_to_lch():
 
 
 def test_luv_to_lch_3d():
-    img = _img()[:4, :4]
+    img = _img()
     xyz_arr = husl.rgb_to_xyz(img)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     lch_new = husl.luv_to_lch(luv_arr)
@@ -207,7 +203,8 @@ IMG_CACHED = [None]
 
 def _img():
     if IMG_CACHED[0] is None:
-        IMG_CACHED[0] = imread.imread("examples/gelface.jpg") / 255.0
+        IMG_CACHED[0] = i = imread.imread("examples/gelface.jpg") / 255.0
+        i[np.all(i == 0, axis=2)] = 0.4
     return IMG_CACHED[0]
 
 
