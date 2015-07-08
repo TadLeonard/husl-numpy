@@ -33,9 +33,9 @@ def test_lch_to_husl():
         old_husl_from_rgb = old_husl.rgb_to_husl(*rgb)
         assert old_husl_from_lch == old_husl_from_rgb
         diff =  hsl_r - old_husl_from_rgb
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
         diff =  hsl_l - old_husl_from_rgb
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_lch_to_husl_3d():
@@ -70,7 +70,7 @@ def test_luv_to_lch():
     lch_arr = husl.luv_to_lch(luv_arr)
     for lch, luv in zip(lch_arr, luv_arr):
         diff =  lch - old_husl.luv_to_lch(luv)
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_luv_to_lch_3d():
@@ -89,7 +89,7 @@ def test_rgb_to_lch():
     lch_arr = husl.rgb_to_lch(rgb_arr)
     for lch, rgb in zip(lch_arr, rgb_arr):
         diff = lch - old_husl.rgb_to_lch(*rgb)
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_rgb_to_lch_3d():
@@ -99,7 +99,7 @@ def test_rgb_to_lch_3d():
         for col in range(lch_arr.shape[1]):
             old_lch = old_husl.rgb_to_lch(*rgb_arr[row, col])
             diff = lch_arr[row, col] - old_lch
-            assert np.all(diff < 0.0001)
+            assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_rgb_to_lch_chain():
@@ -119,7 +119,7 @@ def test_xyz_to_luv():
     luv_arr = husl.xyz_to_luv(xyz_arr)
     for luv, xyz in zip(luv_arr, xyz_arr):
         diff =  luv - old_husl.xyz_to_luv(xyz)
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_rgb_to_xyz():
@@ -129,7 +129,7 @@ def test_rgb_to_xyz():
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     for xyz, rgb in zip(xyz_arr, rgb_arr):
         diff =  xyz - old_husl.rgb_to_xyz(rgb)
-        assert np.all(diff < 0.0001)
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_rgb_to_xyz_3d():
@@ -139,7 +139,7 @@ def test_rgb_to_xyz_3d():
         for col in range(img.shape[1]):
             xyz = xyz_arr[row, col]
             diff =  xyz - old_husl.rgb_to_xyz(img[row, col])
-            assert np.all(diff < 0.0001)
+            assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_to_linear():
