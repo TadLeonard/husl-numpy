@@ -24,9 +24,17 @@ def test_rgb_to_husl_3d():
 def test_lch_to_husl():
     rgb_arr = _img()[:, 0]
     lch_arr = husl.rgb_to_lch(rgb_arr)
-    hsl_arr = husl.lch_to_husl(lch_arr)
-    for hsl, lch in zip(hsl_arr, lch_arr):
-        diff =  hsl - old_husl.lch_to_husl(lch)
+    hsl_from_lch_arr = husl.lch_to_husl(lch_arr)
+    hsl_from_rgb_arr = husl.rgb_to_husl(rgb_arr)
+    arrays = zip(hsl_from_rgb_arr, hsl_from_lch_arr, lch_arr, rgb_arr)
+    for hsl_r, hsl_l, lch, rgb in arrays:
+        old_lch = old_husl.rgb_to_lch(*rgb)
+        old_husl_from_lch = old_husl.lch_to_husl(old_lch)
+        old_husl_from_rgb = old_husl.rgb_to_husl(*rgb)
+        assert old_husl_from_lch == old_husl_from_rgb
+        diff =  hsl_r - old_husl_from_rgb
+        assert np.all(diff < 0.0001)
+        diff =  hsl_l - old_husl_from_rgb
         assert np.all(diff < 0.0001)
 
 
@@ -37,6 +45,7 @@ def test_lch_to_husl_3d():
         for col in range(lch_new.shape[1]):
             lch_old = old_husl.rgb_to_lch(*img[row, col]) 
             assert np.all(lch_new[row, col] == lch_old) 
+
 
 def test_ray_length():
     thetas = np.asarray([0.1, 4.0, 44.4, 500.2])
@@ -75,10 +84,9 @@ def test_luv_to_lch_3d():
             assert np.all(lch_new[row, col] == lch_old)
 
 
-def test_rgb_to_lch():
-    rgb_arr = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.52, 0.1, 0.25],
-               [0.7, 0.8, 0.8], [0.9, 0.9, 0.1], [0.0, 1.0, 0.1]]
-    rgb_arr = np.asarray(rgb_arr)
+
+def test_rgb_to_lch_chain():
+    rgb_arr = _img()[:, 0]
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     lch_arr = husl.luv_to_lch(luv_arr)
