@@ -139,10 +139,12 @@ def test_rgb_to_xyz_3d():
 
 
 def test_to_linear():
-    val_a = 0.055 + 0.330
-    val_b = 0.055 - 0.020
-    assert old_husl.to_linear(val_a) == husl._to_linear(np.array([val_a]))[0]
-    assert old_husl.to_linear(val_b) == husl._to_linear(np.array([val_b]))[0]
+    a = 0.055 + 0.330
+    b = 0.055 - 0.020
+    c = 0.0
+    d = 1.0
+    for val in (a, b, c, d):
+        assert old_husl.to_linear(val) == husl._to_linear(np.array([val]))[0]
 
 
 def test_dot():
