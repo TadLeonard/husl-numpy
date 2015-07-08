@@ -84,6 +84,23 @@ def test_luv_to_lch_3d():
             assert np.all(lch_new[row, col] == lch_old)
 
 
+def test_rgb_to_lch():
+    rgb_arr = _img()[:, 0]
+    lch_arr = husl.rgb_to_lch(rgb_arr)
+    for lch, rgb in zip(lch_arr, rgb_arr):
+        diff = lch - old_husl.rgb_to_lch(*rgb)
+        assert np.all(diff < 0.0001)
+
+
+def test_rgb_to_lch_3d():
+    rgb_arr = _img()
+    lch_arr = husl.rgb_to_lch(rgb_arr)
+    for row in range(lch_arr.shape[0]):
+        for col in range(lch_arr.shape[1]):
+            old_lch = old_husl.rgb_to_lch(*rgb_arr[row, col])
+            diff = lch_arr[row, col] - old_lch
+            assert np.all(diff < 0.0001)
+
 
 def test_rgb_to_lch_chain():
     rgb_arr = _img()[:, 0]
@@ -92,9 +109,6 @@ def test_rgb_to_lch_chain():
     lch_arr = husl.luv_to_lch(luv_arr)
     lch_arr2 = husl.rgb_to_lch(rgb_arr)
     assert np.all(lch_arr == lch_arr2)
-    for lch, luv in zip(lch_arr2, luv_arr):
-        diff =  lch - old_husl.luv_to_lch(luv)
-        assert np.all(diff < 0.0001)
 
 
 def test_xyz_to_luv():
