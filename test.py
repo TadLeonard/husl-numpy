@@ -50,7 +50,8 @@ def test_lch_to_husl_3d():
 def test_max_lh_for_chroma():
     rgb_arr = _img()[:, 0]
     lch_arr = husl.rgb_to_lch(rgb_arr)
-    mx_arr = husl._max_lh_chroma(lch_arr)
+    with np.errstate(invalid="ignore"):
+        mx_arr = husl._max_lh_chroma(lch_arr)
     arrays = zip(mx_arr, lch_arr, rgb_arr)
     for mx, lch, rgb in arrays:
         try:
@@ -58,7 +59,7 @@ def test_max_lh_for_chroma():
         except ZeroDivisionError:
             # NOTE: Divide by zero is avoided in husl.py
             # we're taking a backdoor here by using max_chroma_for_LH directly 
-            assert np.isnan(mx)
+            assert np.isinf(mx)
         else:
             assert _diff(mx, mx_old)
 
