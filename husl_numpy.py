@@ -14,29 +14,36 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
 
 
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
-    _L, C, _H = (_channel(lch_nd, n) for n in range(3))
-    hsl_nd = np.zeros(lch_nd.shape, dtype=float)
-    H, S, L = (_channel(hsl_nd, n) for n in range(3))
+    flat_shape = (lch_nd.size // 3, 3)
+    lch_flat = lch_nd.reshape(flat_shape)
+    _L, C, _H = (_channel(lch_flat, n) for n in range(3))
+    hsl_flat = np.zeros(flat_shape, dtype=float)
+    H, S, L = (_channel(hsl_flat, n) for n in range(3))
     H[:] = _H
     L[:] = _L
     
     # handle lightness extremes
-    hsl_nd[L > L_MAX][..., 1:] = (0.0, 100.0)
-    hsl_nd[L < L_MIN][..., 1:] = 0.0
+    light = _L > L_MAX
+    dark = _L < L_MIN
+    S[light] = 0.0
+    L[light] = 100.0
+    S[dark] = 0.0
+    L[dark] = 0.0
     
-    # compute saturation
-    mx = _max_lh_chroma(lch_nd)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        S = (C / mx) * 100.0
-    S[~np.isfinite(S)] = 0.0
-    _channel(hsl_nd, 1)[:] = S
-    
-    return hsl_nd
+    # compute saturation for pixels that aren't too light or dark
+    remaining = ~np.logical_or(light, dark)
+    mx = _max_lh_chroma(lch_flat[remaining])
+    S[remaining] = (C[remaining] / mx) * 100.0
+
+    return hsl_flat.reshape(lch_nd.shape)
+
+
+_2pi = math.pi * 2
 
 
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     H = _channel(lch, 2)
-    hrad = H / 360.0 * math.pi * 2.0
+    hrad = (H / 360.0) * _2pi
     lengths = np.ndarray((6,) + lch.shape[:-1])
     L = _channel(lch, 0)
     for i, line in enumerate(_bounds(L)):
@@ -77,15 +84,15 @@ def rgb_to_lch(rgb: ndarray) -> ndarray:
 
 
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
+    uv_nd = _channel(luv_nd, slice(1, 2))
+    uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
     lch_nd = luv_nd.copy()
-    U = _channel(luv_nd, 1)
-    V = _channel(luv_nd, 2)
-    C_vals = _channel(lch_nd, 1)
-    C_vals[:] = (U ** 2 + V ** 2) ** 0.5
+    U, V = (_channel(luv_nd, n) for n in range(1, 3))
+    C, H = (_channel(lch_nd, n) for n in range(1, 3))
+    C[:] = (U ** 2 + V ** 2) ** 0.5
     hrad = np.arctan2(V, U)
-    H_vals = _channel(lch_nd, 2)
-    H_vals[:] = np.degrees(hrad)
-    H_vals[H_vals < 0.0] += 360
+    H[:] = np.degrees(hrad)
+    H[H < 0.0] += 360.0
     return lch_nd
 
 
@@ -100,7 +107,7 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
         V_var = (9 * Y) / (X + (15 * Y) + (3 * Z))
     U_var[~np.isfinite(U_var)] = 0  # correct divide by zero
     V_var[~np.isfinite(V_var)] = 0  # correct divide by zero
-    
+
     L, U, V = (_channel(luv_flat, n) for n in range(3))
     L[:] = _f(Y)
     luv_flat[L == 0] = 0
@@ -144,6 +151,6 @@ def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
     return np.dstack((x, y, z)).squeeze()
 
 
-def _channel(data: ndarray, last_dim_idx: int) -> ndarray:
+def _channel(data: ndarray, last_dim_idx: int or slice) -> ndarray:
     return data[..., last_dim_idx]
  
