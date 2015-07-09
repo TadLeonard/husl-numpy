@@ -30,6 +30,7 @@ def test_lch_to_husl():
     for hsl_r, hsl_l, lch, rgb in arrays:
         old_lch = old_husl.rgb_to_lch(*rgb)
         hsl_old = old_husl.lch_to_husl(old_lch)
+        assert _diff(lch, old_lch)
         assert _diff(hsl_l, hsl_old)
         assert _diff(hsl_r, hsl_old)
 
@@ -37,10 +38,13 @@ def test_lch_to_husl():
 def test_lch_to_husl_3d():
     img = _img()
     lch_new = husl.rgb_to_lch(img)
+    hsl_new = husl.lch_to_husl(lch_new)
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
-            lch_old = old_husl.rgb_to_lch(*img[row, col]) 
-            assert np.all(lch_new[row, col] == lch_old) 
+            lch_old = old_husl.rgb_to_lch(*img[row, col])
+            assert _diff(lch_old, lch_new[row, col])
+            hsl_old = old_husl.lch_to_husl(lch_old)
+            assert _diff(hsl_new[row, col], hsl_old) 
 
 
 def test_max_lh_for_chroma():
@@ -49,8 +53,14 @@ def test_max_lh_for_chroma():
     mx_arr = husl._max_lh_chroma(lch_arr)
     arrays = zip(mx_arr, lch_arr, rgb_arr)
     for mx, lch, rgb in arrays:
-        mx_old = old_husl.max_chroma_for_LH(lch[0], lch[2])
-        assert _diff(mx, mx_old)
+        try:
+            mx_old = old_husl.max_chroma_for_LH(float(lch[0]), float(lch[2]))
+        except ZeroDivisionError:
+            # NOTE: Divide by zero is avoided in husl.py
+            # we're taking a backdoor here by using max_chroma_for_LH directly 
+            assert np.isnan(mx)
+        else:
+            assert _diff(mx, mx_old)
 
 
 def test_ray_length():
@@ -67,12 +77,18 @@ def test_ray_length():
 
 def test_luv_to_lch():
     rgb_arr = _img()[:, 0]
+    rgb_arr = _img()
+    rgb_arr = rgb_arr.reshape((rgb_arr.size // 3, 3))
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     luv_arr = husl.xyz_to_luv(xyz_arr)
     lch_arr = husl.luv_to_lch(luv_arr)
-    for lch, luv in zip(lch_arr, luv_arr):
-        diff = lch - old_husl.luv_to_lch(luv)
-        assert _diff(lch, old_husl.luv_to_lch(luv))
+    for i in range(rgb_arr.shape[0]):
+        xyz = old_husl.rgb_to_xyz(rgb_arr[i])
+        assert _diff(xyz, xyz_arr[i])
+        luv = old_husl.xyz_to_luv(xyz)
+        assert _diff(luv, luv_arr[i])
+        lch = old_husl.luv_to_lch(luv)
+        assert _diff(lch, lch_arr[i])
 
 
 def test_luv_to_lch_3d():
@@ -224,7 +240,8 @@ def _img():
     if IMG_CACHED[0] is None:
         i = imread.imread("examples/gelface.jpg") / 255.0
         i = i[::4, ::4]
-        i[np.all(i == 0.0, axis=2)] = 0.4  # throw out (0,0,0) triplets
+        i[0] = 0.0  # ensure we get all black
+        i[1] = 1.0  # ensure we get all white
         IMG_CACHED[0] = i
     return IMG_CACHED[0]
 
