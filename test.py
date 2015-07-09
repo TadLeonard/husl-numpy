@@ -9,7 +9,8 @@ def test_rgb_to_husl():
     husl_new = husl.rgb_to_husl(rgb_arr)
     for row in range(husl_new.shape[0]):
         husl_old = old_husl.rgb_to_husl(*rgb_arr[row])
-        assert np.all(husl_new[row] == husl_old)
+        diff = husl_new[row] - husl_old
+        assert np.all(np.abs(diff) < 0.001)
 
 
 def test_rgb_to_husl_3d():
@@ -18,7 +19,8 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = old_husl.rgb_to_husl(*rgb_arr[row][col])
-            assert np.all(husl_new[row][col] == husl_old)
+            diff = husl_new[row][col] - husl_old
+            assert np.all(np.abs(diff) < 0.001)
 
 
 def test_lch_to_husl():
@@ -29,13 +31,10 @@ def test_lch_to_husl():
     arrays = zip(hsl_from_rgb_arr, hsl_from_lch_arr, lch_arr, rgb_arr)
     for hsl_r, hsl_l, lch, rgb in arrays:
         old_lch = old_husl.rgb_to_lch(*rgb)
-        old_husl_from_lch = old_husl.lch_to_husl(old_lch)
-        old_husl_from_rgb = old_husl.rgb_to_husl(*rgb)
-        assert old_husl_from_lch == old_husl_from_rgb
-        diff =  hsl_r - old_husl_from_rgb
-        print(hsl_r, old_husl_from_rgb)
+        hsl_old = old_husl.lch_to_husl(old_lch)
+        diff =  hsl_l - hsl_old
         assert np.all(np.abs(diff) < 0.0001)
-        diff =  hsl_l - old_husl_from_rgb
+        diff =  hsl_r - hsl_old
         assert np.all(np.abs(diff) < 0.0001)
 
 
@@ -46,6 +45,17 @@ def test_lch_to_husl_3d():
         for col in range(lch_new.shape[1]):
             lch_old = old_husl.rgb_to_lch(*img[row, col]) 
             assert np.all(lch_new[row, col] == lch_old) 
+
+
+def test_max_lh_for_chroma():
+    rgb_arr = _img()[:, 0]
+    lch_arr = husl.rgb_to_lch(rgb_arr)
+    mx_arr = husl._max_lh_chroma(lch_arr)
+    arrays = zip(mx_arr, lch_arr, rgb_arr)
+    for mx, lch, rgb in arrays:
+        mx_old = old_husl.max_chroma_for_LH(lch[0], lch[2])
+        diff = mx - mx_old
+        assert np.all(np.abs(diff) < 0.0001)
 
 
 def test_ray_length():
@@ -225,3 +235,4 @@ def _img():
 
 if __name__ == "__main__":
     print_husl()
+
