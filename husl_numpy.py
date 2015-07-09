@@ -48,8 +48,9 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     L = _channel(lch, 0)
     for i, line in enumerate(_bounds(L)):
         lengths[i] = _ray_length(hrad, line)
+    lengths[np.isnan(lengths)] = np.inf
     lengths[lengths < 0] = np.inf
-    return np.nanmin(lengths, axis=0)
+    return np.min(lengths, axis=0)
 
 
 def _ray_length(theta: ndarray, line: list) -> ndarray:
@@ -71,8 +72,7 @@ def _bounds(l_nd: ndarray) -> list:
             top2 = l_nd * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
                    - ( l_nd * 769860.0 * t)
             bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
-            with np.errstate(invalid="ignore"):  # ignore inf division
-                b1, b2 = top1 / bottom, top2 / bottom
+            b1, b2 = top1 / bottom, top2 / bottom
             b1[~np.isfinite(b1)] = 0
             b2[~np.isfinite(b2)] = 0
             bounds.append((b1, b2))
@@ -105,8 +105,8 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     with np.errstate(invalid="ignore"):  # ignore divide by zero
         U_var = (4 * X) / (X + (15 * Y) + (3 * Z))
         V_var = (9 * Y) / (X + (15 * Y) + (3 * Z))
-    U_var[~np.isfinite(U_var)] = 0  # correct divide by zero
-    V_var[~np.isfinite(V_var)] = 0  # correct divide by zero
+    U_var[np.isinf(U_var)] = 0  # correct divide by zero
+    V_var[np.isinf(V_var)] = 0  # correct divide by zero
 
     L, U, V = (_channel(luv_flat, n) for n in range(3))
     L[:] = _f(Y)
