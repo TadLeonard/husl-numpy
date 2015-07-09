@@ -7,10 +7,9 @@ import husl as old_husl
 def test_rgb_to_husl():
     rgb_arr = _img()[:, 0]
     husl_new = husl.rgb_to_husl(rgb_arr)
-    for row in range(husl_new.shape[0]):
-        husl_old = old_husl.rgb_to_husl(*rgb_arr[row])
-        diff = husl_new[row] - husl_old
-        assert np.all(np.abs(diff) < 0.001)
+    for hsl, rgb in zip(husl_new, rgb_arr):
+        husl_old = old_husl.rgb_to_husl(*rgb)
+        assert _diff(hsl, husl_old)
 
 
 def test_rgb_to_husl_3d():
@@ -19,8 +18,7 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = old_husl.rgb_to_husl(*rgb_arr[row][col])
-            diff = husl_new[row][col] - husl_old
-            assert np.all(np.abs(diff) < 0.001)
+            assert _diff(husl_new[row, col], husl_old)
 
 
 def test_lch_to_husl():
@@ -32,10 +30,8 @@ def test_lch_to_husl():
     for hsl_r, hsl_l, lch, rgb in arrays:
         old_lch = old_husl.rgb_to_lch(*rgb)
         hsl_old = old_husl.lch_to_husl(old_lch)
-        diff =  hsl_l - hsl_old
-        assert np.all(np.abs(diff) < 0.0001)
-        diff =  hsl_r - hsl_old
-        assert np.all(np.abs(diff) < 0.0001)
+        assert _diff(hsl_l, hsl_old)
+        assert _diff(hsl_r, hsl_old)
 
 
 def test_lch_to_husl_3d():
@@ -54,8 +50,7 @@ def test_max_lh_for_chroma():
     arrays = zip(mx_arr, lch_arr, rgb_arr)
     for mx, lch, rgb in arrays:
         mx_old = old_husl.max_chroma_for_LH(lch[0], lch[2])
-        diff = mx - mx_old
-        assert np.all(np.abs(diff) < 0.0001)
+        assert _diff(mx, mx_old)
 
 
 def test_ray_length():
@@ -76,8 +71,8 @@ def test_luv_to_lch():
     luv_arr = husl.xyz_to_luv(xyz_arr)
     lch_arr = husl.luv_to_lch(luv_arr)
     for lch, luv in zip(lch_arr, luv_arr):
-        diff =  lch - old_husl.luv_to_lch(luv)
-        assert np.all(np.abs(diff) < 0.0001)
+        diff = lch - old_husl.luv_to_lch(luv)
+        assert _diff(lch, old_husl.luv_to_lch(luv))
 
 
 def test_luv_to_lch_3d():
@@ -88,7 +83,7 @@ def test_luv_to_lch_3d():
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
             lch_old = old_husl.rgb_to_lch(*img[row, col]) 
-            assert np.all(lch_new[row, col] == lch_old)
+            assert _diff(lch_new[row, col], lch_old)
 
 
 def test_rgb_to_lch():
@@ -96,7 +91,7 @@ def test_rgb_to_lch():
     lch_arr = husl.rgb_to_lch(rgb_arr)
     for lch, rgb in zip(lch_arr, rgb_arr):
         diff = lch - old_husl.rgb_to_lch(*rgb)
-        assert np.all(np.abs(diff) < 0.0001)
+        assert _diff(lch, old_husl.rgb_to_lch(*rgb))
 
 
 def test_rgb_to_lch_3d():
@@ -105,8 +100,7 @@ def test_rgb_to_lch_3d():
     for row in range(lch_arr.shape[0]):
         for col in range(lch_arr.shape[1]):
             old_lch = old_husl.rgb_to_lch(*rgb_arr[row, col])
-            diff = lch_arr[row, col] - old_lch
-            assert np.all(np.abs(diff) < 0.0001)
+            assert _diff(lch_arr[row, col], old_lch)
 
 
 def test_rgb_to_lch_chain():
@@ -124,7 +118,7 @@ def test_xyz_to_luv():
     luv_arr = husl.xyz_to_luv(xyz_arr)
     for luv, xyz in zip(luv_arr, xyz_arr):
         diff = luv - old_husl.xyz_to_luv(xyz)
-        assert np.all(np.abs(diff) < 0.0001)
+        assert _diff(luv, old_husl.xyz_to_luv(xyz))
 
 
 def test_xyz_to_luv_3d():
@@ -134,8 +128,7 @@ def test_xyz_to_luv_3d():
     for row in range(luv_arr.shape[0]):
         for col in range(luv_arr.shape[1]):
             old_luv = old_husl.xyz_to_luv(xyz_arr[row, col]) 
-            diff = luv_arr[row, col] - old_luv
-            assert np.all(np.abs(diff) < 0.0001)
+            assert _diff(luv_arr[row, col], old_luv)
 
 
 def test_rgb_to_xyz():
@@ -143,7 +136,7 @@ def test_rgb_to_xyz():
     xyz_arr = husl.rgb_to_xyz(rgb_arr)
     for xyz, rgb in zip(xyz_arr, rgb_arr):
         diff = xyz - old_husl.rgb_to_xyz(rgb)
-        assert np.all(np.abs(diff) < 0.0001)
+        assert _diff(xyz, old_husl.rgb_to_xyz(rgb))
 
 
 def test_rgb_to_xyz_3d():
@@ -151,9 +144,8 @@ def test_rgb_to_xyz_3d():
     xyz_arr = husl.rgb_to_xyz(img)
     for row in range(img.shape[0]):
         for col in range(img.shape[1]):
-            xyz = xyz_arr[row, col]
-            diff =  xyz - old_husl.rgb_to_xyz(img[row, col])
-            assert np.all(np.abs(diff) < 0.0001)
+            assert _diff(xyz_arr[row, col],
+                         old_husl.rgb_to_xyz(img[row, col]))
 
 
 def test_to_linear():
@@ -213,6 +205,10 @@ def test_channel_assignment():
     assert np.all(husl._channel(a, 1) == 2)
     assert np.all(husl._channel(a, 2) == 3)
     
+
+def _diff(arr_a, arr_b, diff=0.0000000001):
+    return np.all(np.abs(arr_a - arr_b) < diff)
+
 
 def print_husl():
     img_float = _img()
