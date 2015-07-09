@@ -41,9 +41,8 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     L = _channel(lch, 0)
     for i, line in enumerate(_bounds(L)):
         lengths[i] = _ray_length(hrad, line)
-    lengths[lengths < 0] = np.nan  # we don't want to consider subzero lens
-    lengths[~np.isfinite(lengths)] = np.nan  # nor inifite lens
-    return np.nanmin(lengths)
+    lengths[lengths < 0] = np.inf
+    return np.nanmin(lengths, axis=0)
 
 
 def _ray_length(theta: ndarray, line: list) -> ndarray:
