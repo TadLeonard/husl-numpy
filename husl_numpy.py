@@ -13,6 +13,7 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     return lch_to_husl(rgb_to_lch(rgb_nd))
 
 
+@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
@@ -41,6 +42,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
+@profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     H = _channel(lch, 2)
     hrad = (H / 360.0) * _2pi
@@ -53,12 +55,14 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     return np.min(lengths, axis=0)
 
 
+@profile
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))
     return length 
 
 
+@profile
 def _bounds(l_nd: ndarray) -> list:
     sub1 = ((l_nd + 16.0) ** 3.0) / 1560896.0
     sub2 = sub1.flatten()  # flat copy
@@ -73,8 +77,6 @@ def _bounds(l_nd: ndarray) -> list:
                    - ( l_nd * 769860.0 * t)
             bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
             b1, b2 = top1 / bottom, top2 / bottom
-            b1[~np.isfinite(b1)] = 0
-            b2[~np.isfinite(b2)] = 0
             bounds.append((b1, b2))
     return bounds
         
