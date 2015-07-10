@@ -18,7 +18,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
     _L, C, _H = (_channel(lch_flat, n) for n in range(3))
-    hsl_flat = np.zeros(flat_shape, dtype=float)
+    hsl_flat = np.zeros(flat_shape, dtype=np.float)
     H, S, L = (_channel(hsl_flat, n) for n in range(3))
     H[:] = _H
     L[:] = _L
@@ -55,11 +55,13 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     return np.min(lengths, axis=0)
 
 
-@profile
-def _ray_length(theta: ndarray, line: list) -> ndarray:
-    m1, b1 = line
-    length = b1 / (np.sin(theta) - m1 * np.cos(theta))
-    return length 
+M_CONSTS = np.asarray(husl.m)
+M1, M2, M3 = (M_CONSTS[..., n] for n in range(3))
+TOP1_SCALAR = 284517.0 * M1 - 94839.0 * M3
+TOP2_SCALAR = 838422.0 * M3 + 769860.0 * M2 + 731718.0 * M1
+TOP2_L_SCALAR = 769860.0
+BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
+BOTTOM_CONST = 126452.0
 
 
 @profile
@@ -69,17 +71,26 @@ def _bounds(l_nd: ndarray) -> list:
     lt_epsilon = sub2 < husl.epsilon
     sub2[lt_epsilon] = (l_nd.flat[lt_epsilon] / husl.kappa)
     sub2 = sub2.reshape(sub1.shape)
-    bounds = []
-    for m1, m2, m3 in husl.m:
+    
+    for t1, t2, b in zip(TOP1_SCALAR, TOP2_SCALAR, BOTTOM_SCALAR):
         for t in (0, 1):
-            top1 = sub2 * (284517.0 * m1 - 94839.0 * m3)
-            top2 = l_nd * sub2 * (838422.0 * m3 + 769860.0 * m2 + 731718.0 * m1)\
-                   - ( l_nd * 769860.0 * t)
-            bottom = sub2 * (632260.0 * m3 - 126452.0 * m2) + 126452.0 * t
+            top1 = sub2 * t1
+            top2 = l_nd * sub2 * t2
+            if t:
+                top2 -= (l_nd * TOP2_L_SCALAR)
+            bottom = sub2 * b
+            if t:
+                bottom += BOTTOM_CONST
             b1, b2 = top1 / bottom, top2 / bottom
-            bounds.append((b1, b2))
-    return bounds
-        
+            yield b1, b2
+
+
+@profile
+def _ray_length(theta: ndarray, line: list) -> ndarray:
+    m1, b1 = line
+    length = b1 / (np.sin(theta) - m1 * np.cos(theta))
+    return length 
+
 
 def rgb_to_lch(rgb: ndarray) -> ndarray:
     return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
@@ -100,7 +111,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
 
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
-    luv_flat = np.zeros(flat_shape)  # flattened xyz n-dim array
+    luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz n-dim array
     xyz_flat = xyz_nd.reshape(flat_shape)
     X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
 
@@ -126,7 +137,7 @@ def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
 
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
-    f_flat = np.zeros(y_flat.shape)
+    f_flat = np.zeros(y_flat.shape, dtype=np.float)
     gt = y_flat > husl.epsilon
     f_flat[gt] = (y_flat[gt] / husl.refY) ** (1.0 / 3.0) * 116 - 16
     f_flat[~gt] = (y_flat[~gt] / husl.refY) * husl.kappa
@@ -135,7 +146,7 @@ def _f(y_nd: ndarray) -> ndarray:
 
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
-    xyz_nd = np.zeros(rgb_nd.shape)
+    xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
     gt = rgb_nd > 0.04045
     xyz_nd[gt] = ((rgb_nd[gt] + a) / (1 + a)) ** 2.4
     xyz_nd[~gt] = rgb_nd[~gt] / 12.92
@@ -143,7 +154,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     
 
 def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
-    scalars = np.asarray(scalars)
+    scalars = np.asarray(scalars, dtype=np.float)
     assert rgb_nd.shape[-1] == 3
     assert scalars.shape == (3, 3)
     sum_axis = len(rgb_nd.shape) - 1
