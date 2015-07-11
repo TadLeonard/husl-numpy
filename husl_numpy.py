@@ -2,6 +2,7 @@ import math
 import numpy as np
 from numpy import ndarray
 import husl
+from typing import List, Iterator, Tuple, Callable
 
 
 # Constants used in the original husl.py for L channel comparison
@@ -159,8 +160,6 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
 
 def _dot_product(scalars: List, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
-    assert rgb_nd.shape[-1] == 3
-    assert scalars.shape == (3, 3)
     sum_axis = len(rgb_nd.shape) - 1
     x = np.sum(scalars[0] * rgb_nd, sum_axis)
     y = np.sum(scalars[1] * rgb_nd, sum_axis)
