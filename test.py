@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import imread
 import husl_numpy as husl
@@ -227,13 +228,6 @@ def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
 
 
-def print_husl():
-    img_float = _img()
-    new = husl.rgb_to_husl(img_float)
-    old = old_husl.rgb_to_husl(*img_float[0, 0])
-    print(old, new[0, 0])
-
-
 IMG_CACHED = [None]
 
 
@@ -247,6 +241,19 @@ def _img():
     return IMG_CACHED[0]
 
 
-if __name__ == "__main__":
-    print_husl()
+@profile
+def main():
+    img_int = imread.imread(sys.argv[1])
+    print(img_int[0, 0])
+    img_float = np.zeros(img_int.shape, dtype=np.float)
+    np.divide(img_int, 255.0, out=img_float)  
+    avg_rows = np.average(img_float[:, ::2], axis=1)
+    hsl = husl.rgb_to_husl(avg_rows)
+    print(hsl[..., 2])
+    print(np.average(img_int[0], axis=1))
+    img_int[hsl[..., 2] > 95] = 0
+    imread.imwrite("hork.jpg", img_int)
 
+
+if __name__ == "__main__":
+    main()
