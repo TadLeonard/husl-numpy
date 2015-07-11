@@ -157,7 +157,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
     
 
-def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
+def _dot_product(scalars: List, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
     assert rgb_nd.shape[-1] == 3
     assert scalars.shape == (3, 3)
@@ -170,4 +170,44 @@ def _dot_product(scalars, rgb_nd: ndarray) -> ndarray:
 
 def _channel(data: ndarray, last_dim_idx: int or slice) -> ndarray:
     return data[..., last_dim_idx]
- 
+
+
+def transform_rgb(rgb_img: ndarray,
+                  transform: Callable[[ndarray], ndarray],
+                  chunksize: int = 200) -> ndarray:
+    """Transform an `np.ndarray` of RGB ints to some other
+    float represntation (i.e. HUSL)"""
+    chunks = _chunks(rgb_img, chunksize)
+    out = np.zeros(img.shape, dtype=np.float)
+    
+    def trans(chunk: ndarray) -> ndarray:
+        return transform(chunk / 255.0)
+    
+    chunk_transform(trans, chunks, out)
+    return out
+
+
+def chunk_transform(transform: Callable, chunks: Iterator,
+                    out: ndarray) -> None:
+    """Transform chunks of an image and write the result to `out`"""
+    for chunk, dims in chunks:
+        (rstart, rend), (cstart, cend) = dims
+        out[rstart: rend, cstart: cend] = transform(chunk)
+
+
+def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
+    rows, cols = img.shape[:2]
+    for row_start, row_end in _chunk(rows, chunksize):
+        for col_start, col_end in _chunk(cols, chunksize):
+            img_slice = img[row_start: row_end, col_start: col_end]
+            yield img_slice, ((row_start, row_end), (col_start, col_end))
+
+
+def _chunk(end: int, chunksize: int) -> Iterator[Tuple[int, int]]:
+    _start = 0
+    if end > chunksize:
+        for _end in range(chunksize, end, chunksize):
+            yield _start, _end
+            _start = _end
+    yield _start, end 
+
