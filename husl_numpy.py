@@ -44,17 +44,18 @@ _2pi = math.pi * 2
 
 @profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
-    H = _channel(lch, 2)
+    L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
-    lengths = np.ndarray((6,) + lch.shape[:-1])
-    L = _channel(lch, 0)
-    for i, line in enumerate(_bounds(L)):
-        lengths[i] = _ray_length(hrad, line)
-    lengths[np.isnan(lengths)] = np.inf
-    lengths[lengths < 0] = np.inf
-    return np.min(lengths, axis=0)
+    lengths = np.ndarray((lch.shape[0],), dtype=np.float)
+    lengths[:] = np.inf
+    for line in _bounds(L):
+        lens = _ray_length(hrad, line)
+        lens[np.isnan(lens)] = np.inf
+        lens[lens < 0] = np.inf
+        np.minimum(lens, lengths, out=lengths)
+    return lengths
 
-
+   
 M_CONSTS = np.asarray(husl.m)
 M1, M2, M3 = (M_CONSTS[..., n] for n in range(3))
 TOP1_SCALAR = 284517.0 * M1 - 94839.0 * M3
@@ -66,10 +67,13 @@ BOTTOM_CONST = 126452.0
 
 @profile
 def _bounds(l_nd: ndarray) -> list:
-    sub1 = ((l_nd + 16.0) ** 3.0) / 1560896.0
+    sub1 = l_nd + 16.0
+    np.power(sub1, 3, out=sub1)
+    np.divide(sub1, 1560896.0, out=sub1)
     sub2 = sub1.flatten()  # flat copy
     lt_epsilon = sub2 < husl.epsilon
     sub2[lt_epsilon] = (l_nd.flat[lt_epsilon] / husl.kappa)
+    del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
     
     for t1, t2, b in zip(TOP1_SCALAR, TOP2_SCALAR, BOTTOM_SCALAR):
