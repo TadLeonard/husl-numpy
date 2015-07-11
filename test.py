@@ -243,16 +243,14 @@ def _img():
 
 @profile
 def main():
-    img_int = imread.imread(sys.argv[1])
-    print(img_int[0, 0])
-    img_float = np.zeros(img_int.shape, dtype=np.float)
-    np.divide(img_int, 255.0, out=img_float)  
-    avg_rows = np.average(img_float[:, ::2], axis=1)
-    hsl = husl.rgb_to_husl(avg_rows)
-    print(hsl[..., 2])
-    print(np.average(img_int[0], axis=1))
-    img_int[hsl[..., 2] > 95] = 0
-    imread.imwrite("hork.jpg", img_int)
+    img_int = imread.imread(sys.argv[1])[:1000, :1000]
+    img_float = img_int / 255.0
+
+    hslbig = husl.rgb_to_husl(img_float)
+
+    out = np.zeros(img_float.shape, dtype=np.float)
+    chunks = husl.chunk_img(img_float, 200)
+    husl.chunk_transform(husl.rgb_to_husl, chunks, out)
 
 
 if __name__ == "__main__":
