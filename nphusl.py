@@ -227,6 +227,13 @@ def to_hue(rgb_img: ndarray, chunksize: int = 200):
     return out
 
 
+def to_husl(rgb_img: ndarray, chunksize: int = 200):
+    """Convert an RGB image of integers to a 3D array of HSL values"""
+    out = np.zeros(rgb_img.shape, dtype=np.float)
+    out = transform_rgb(rgb_img, rgb_to_husl, chunksize, out)
+    return out
+
+
 def transform_rgb(rgb_img: ndarray,
                   transform: Callable[[ndarray], ndarray],
                   chunksize: int = 200, out: ndarray = None) -> ndarray:
