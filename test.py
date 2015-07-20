@@ -273,7 +273,7 @@ IMG_CACHED = [None]
 
 def _img():
     if IMG_CACHED[0] is None:
-        i = imread.imread("examples/gelface.jpg") / 255.0
+        i = imread.imread("images/gelface.jpg") / 255.0
         i = i[::4, ::4]
         i[0] = 0.0  # ensure we get all black
         i[1] = 1.0  # ensure we get all white
