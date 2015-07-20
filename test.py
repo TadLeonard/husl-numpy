@@ -228,6 +228,18 @@ def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
 
 
+def test_chunk():
+    """Ensures that the chunk iterator breaks an image into NxN squares"""
+    img = _img()
+    print(img.shape)
+    assert not np.all(img[:10, :10] == 0)
+    for i, (chunk, _) in enumerate(husl.chunk_img(img, 10)):
+        chunk[:] = i
+    for i, (chunk, _) in enumerate(husl.chunk_img(img, 10)):
+        assert np.all(chunk == i)
+    assert np.all(img[:10, :10] == 0)
+
+
 IMG_CACHED = [None]
 
 
