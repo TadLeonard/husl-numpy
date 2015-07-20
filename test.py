@@ -248,7 +248,14 @@ def test_chunk_transform():
     husl.chunk_transform(transform, chunks, img)
     assert np.sum(img == 0) == 0
     assert np.all(img[zero_at] == 100)
-    
+
+
+def test_transform_rgb():
+    img = _img()
+    as_husl = husl.rgb_to_husl(img / 255.0)
+    chunk_husl = husl.transform_rgb(img, husl.rgb_to_husl, 10)
+    assert np.all(as_husl == chunk_husl)     
+ 
 
 def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)

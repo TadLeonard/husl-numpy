@@ -172,8 +172,8 @@ def transform_rgb(rgb_img: ndarray,
                   chunksize: int = 200) -> ndarray:
     """Transform an `np.ndarray` of RGB ints to some other
     float represntation (i.e. HUSL)"""
-    chunks = _chunks(rgb_img, chunksize)
-    out = np.zeros(img.shape, dtype=np.float)
+    chunks = chunk_img(rgb_img, chunksize)
+    out = np.zeros(rgb_img.shape, dtype=np.float)
     
     def trans(chunk: ndarray) -> ndarray:
         return transform(chunk / 255.0)
