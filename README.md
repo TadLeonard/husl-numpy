@@ -3,16 +3,15 @@
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
 
-Some examples
-#############
+## Some examples
 
 ![an image](images/gelface.jpg)
 
 Let's say we need to highlight the bluish regions in this image.
 
 
-With the HUSL color space
--------------------------
+###With the HUSL color space
+
 The HUSL color space makes this pretty easy. Blue hues are roughly between
 250 and 290 in HUSL.
 
@@ -38,8 +37,8 @@ We get roughly what we'd expect:
 ![this image](images/blue.jpg)
 
 
-With the RGB color space
-------------------------
+### With the RGB color space
+
 With the RGB color space, we have to examine each color channel and select
 pixels that match three conditions:
 
