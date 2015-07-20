@@ -286,10 +286,10 @@ def main():
     img_float = img_int / 255.0
 
     out = np.zeros(img_float.shape, dtype=np.float)
-    chunks = husl.chunk_img(img_float, 200)
+    chunks = husl.chunk_img(img_float)
     husl.chunk_transform(husl.rgb_to_husl, chunks, out)
     husl.transform_rgb(img_int, husl.rgb_to_husl)
-    husl.transform_rgb(img_int, husl.rgb_to_hue)
+    husl.to_hue(img_int)
 
 
 if __name__ == "__main__":
