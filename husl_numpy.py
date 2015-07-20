@@ -11,7 +11,16 @@ L_MIN =  0.0000001
 
 
 def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
+    """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
+    of HUSL values"""
     return lch_to_husl(rgb_to_lch(rgb_nd))
+
+
+def rgb_to_hue(rgb: ndarray) -> ndarray:
+    """Convenience function to return JUST the HUSL hue values
+    for a given RGB image"""
+    lch = luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
+    return _channel(lch, 2)
 
 
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
@@ -74,6 +83,10 @@ def _bounds(l_nd: ndarray) -> Iterator:
     del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
     
+    # The goal here is to computer "lines" for each lightness value
+    # Since we can be dealing with LOTS of lightness values (i.e. 4,000 x
+    # 6,000), this is implemented as an iterator. Raspberry Pi and other small
+    # machines can't keep too many huge arrays in memory.
     for t1, t2, b in zip(TOP1_SCALAR, TOP2_SCALAR, BOTTOM_SCALAR):
         for t in (0, 1):
             top1 = sub2 * t1
@@ -167,13 +180,21 @@ def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
     return data[..., last_dim_idx]
 
 
+def to_hue(rgb_img: ndarray, chunksize: int = 200):
+    """Convert an RGB image of integers to a 2D array of HUSL hues"""
+    out = np.zeros(rgb_img.shape[:2], dtype=np.float)
+    out = transform_rgb(rgb_img, rgb_to_hue, chunksize, out)
+    return out
+
+
 def transform_rgb(rgb_img: ndarray,
                   transform: Callable[[ndarray], ndarray],
-                  chunksize: int = 200) -> ndarray:
+                  chunksize: int = 200, out: ndarray = None) -> ndarray:
     """Transform an `np.ndarray` of RGB ints to some other
     float represntation (i.e. HUSL)"""
     chunks = chunk_img(rgb_img, chunksize)
-    out = np.zeros(rgb_img.shape, dtype=np.float)
+    if out is None:
+        out = np.zeros(rgb_img.shape, dtype=np.float)
     
     def trans(chunk: ndarray) -> ndarray:
         return transform(chunk / 255.0)

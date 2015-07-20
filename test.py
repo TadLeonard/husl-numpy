@@ -255,7 +255,14 @@ def test_transform_rgb():
     as_husl = husl.rgb_to_husl(img / 255.0)
     chunk_husl = husl.transform_rgb(img, husl.rgb_to_husl, 10)
     assert np.all(as_husl == chunk_husl)     
- 
+
+
+def test_to_hue():
+    img = _img()
+    as_husl = husl.rgb_to_husl(img / 255.0)
+    just_hue = husl.to_hue(img)
+    assert np.all(as_husl[..., 0] == just_hue)
+
 
 def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
@@ -275,12 +282,14 @@ def _img():
 
 
 def main():
-    img_int = imread.imread(sys.argv[1])
+    img_int = imread.imread(sys.argv[1])[:1000, :1000]
     img_float = img_int / 255.0
 
     out = np.zeros(img_float.shape, dtype=np.float)
     chunks = husl.chunk_img(img_float, 200)
     husl.chunk_transform(husl.rgb_to_husl, chunks, out)
+    husl.transform_rgb(img_int, husl.rgb_to_husl)
+    husl.transform_rgb(img_int, husl.rgb_to_hue)
 
 
 if __name__ == "__main__":
