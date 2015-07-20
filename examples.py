@@ -1,10 +1,15 @@
+import sys
 import imread
-import huslnp
+import numpy as np
+import nphusl
 
 
 def reveal_red(img):
     hue = nphusl.to_hue(img)
-    img[hue < 50] = (255, 0, 0)
+    below_max = hue < 100
+    above_min = hue > 50
+    select = np.logical_and(below_max, above_min)
+    img[select] = (0, 200, 125)
     return img
 
 
@@ -12,4 +17,4 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     img = imread.imread(filename)
     reveal_red(img)
-    imread.imwrite("{}-{}".format("red_areas_", filename))
+    imread.imwrite("red.jpg", img)
