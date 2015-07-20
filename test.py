@@ -224,20 +224,34 @@ def test_channel_assignment():
     assert np.all(husl._channel(a, 2) == 3)
     
 
-def _diff(arr_a, arr_b, diff=0.0000000001):
-    return np.all(np.abs(arr_a - arr_b) < diff)
-
-
 def test_chunk():
     """Ensures that the chunk iterator breaks an image into NxN squares"""
     img = _img()
-    print(img.shape)
     assert not np.all(img[:10, :10] == 0)
     for i, (chunk, _) in enumerate(husl.chunk_img(img, 10)):
         chunk[:] = i
     for i, (chunk, _) in enumerate(husl.chunk_img(img, 10)):
         assert np.all(chunk == i)
     assert np.all(img[:10, :10] == 0)
+
+
+def test_chunk_transform():
+    img = _img()
+    assert np.sum(img == 0) != 0  # assert that there are some 0,0,0 pixels
+    zero_at = np.where(img == 0)
+
+    def transform(chunk):
+        chunk[chunk == 0] = 100
+        return chunk
+
+    chunks = husl.chunk_img(img, 10)
+    husl.chunk_transform(transform, chunks, img)
+    assert np.sum(img == 0) == 0
+    assert np.all(img[zero_at] == 100)
+    
+
+def _diff(arr_a, arr_b, diff=0.0000000001):
+    return np.all(np.abs(arr_a - arr_b) < diff)
 
 
 IMG_CACHED = [None]
