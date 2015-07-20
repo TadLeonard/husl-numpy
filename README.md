@@ -1,12 +1,14 @@
-# numpy-friendly HUSL color space conversions
+# HUSL color space conversion with `numpy`
 
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
 
-Some images
-^^^^^^^^^^^^^
-Given an image like ![this one](images/gelface.jpg), let's say we want to
-highlight the bluish regions of the image.
+Some examples
+#############
+
+![an image](images/gelface.jpg)
+
+Let's say we need to highlight the bluish regions in this image.
 
 
 With the HUSL color space
@@ -31,7 +33,9 @@ out[bluish] = (0, 0, 255)  # highlight bluish area bright blue
 imread.imwrite("blue.jpg", out)
 ```
 
-This results in ![this image](images/blue.jpg)
+We get roughly what we'd expect:
+
+![this image](images/blue.jpg)
 
 
 With the RGB color space
@@ -58,7 +62,9 @@ out[select] = (0, 0, 255)  # reveal the selected region
 imread.imwrite("blue_rgb.jpg", out)
 ```
 
-This results in ![this image](images/blue_rgb.jpg)
+Again, we get approximately what we'd hope for:
+
+![this image](images/blue_rgb.jpg)
 
 
 
