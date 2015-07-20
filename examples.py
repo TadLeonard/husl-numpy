@@ -5,11 +5,13 @@ import nphusl
 
 
 def reveal_red(img):
+    # convert an integer RGB image to an 2D array of HUSL hue values
     hue = nphusl.to_hue(img)
+    # create a filter for pixels with hues between 50 and 100
     below_max = hue < 100
     above_min = hue > 50
     select = np.logical_and(below_max, above_min)
-    img[select] = (0, 200, 125)
+    img[select] = (0, 200, 125)  # reveal the selected region
     return img
 
 
