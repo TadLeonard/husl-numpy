@@ -241,12 +241,9 @@ def _img():
     return IMG_CACHED[0]
 
 
-@profile
 def main():
-    img_int = imread.imread(sys.argv[1])[:1000, :1000]
+    img_int = imread.imread(sys.argv[1])
     img_float = img_int / 255.0
-
-    hslbig = husl.rgb_to_husl(img_float)
 
     out = np.zeros(img_float.shape, dtype=np.float)
     chunks = husl.chunk_img(img_float, 200)

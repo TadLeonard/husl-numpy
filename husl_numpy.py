@@ -14,7 +14,6 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     return lch_to_husl(rgb_to_lch(rgb_nd))
 
 
-@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
@@ -43,7 +42,6 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
-@profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
@@ -66,8 +64,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-@profile
-def _bounds(l_nd: ndarray) -> list:
+def _bounds(l_nd: ndarray) -> Iterator:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
     np.divide(sub1, 1560896.0, out=sub1)
@@ -90,7 +87,6 @@ def _bounds(l_nd: ndarray) -> list:
             yield b1, b2
 
 
-@profile
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))
@@ -195,6 +191,7 @@ def chunk_transform(transform: Callable, chunks: Iterator,
 
 
 def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
+    """Break an image into squares of length `chunksize`"""
     rows, cols = img.shape[:2]
     for row_start, row_end in _chunk(rows, chunksize):
         for col_start, col_end in _chunk(cols, chunksize):
