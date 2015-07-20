@@ -254,13 +254,13 @@ def chunk_transform(transform: Callable, chunks: Iterator,
 def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
     """Break an image into squares of length `chunksize`"""
     rows, cols = img.shape[:2]
-    for row_start, row_end in _chunk(rows, chunksize):
-        for col_start, col_end in _chunk(cols, chunksize):
+    for row_start, row_end in chunk(rows, chunksize):
+        for col_start, col_end in chunk(cols, chunksize):
             img_slice = img[row_start: row_end, col_start: col_end]
             yield img_slice, ((row_start, row_end), (col_start, col_end))
 
 
-def _chunk(end: int, chunksize: int) -> Iterator[Tuple[int, int]]:
+def chunk(end: int, chunksize: int) -> Iterator[Tuple[int, int]]:
     """Generate tuples of (start_idx, end_idx) that breaks a sequence into
     slices of `chunksize` length"""
     _start = 0
