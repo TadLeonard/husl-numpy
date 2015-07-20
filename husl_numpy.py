@@ -1,8 +1,8 @@
 import math
-import numpy as np
-from numpy import ndarray
+import numpy as np  # type: ignore
+from numpy import ndarray  # type: ignore
 import husl
-from typing import List, Iterator, Tuple, Callable
+from typing import List, Iterator, Tuple, Callable, Union
 
 
 # Constants used in the original husl.py for L channel comparison
@@ -167,7 +167,7 @@ def _dot_product(scalars: List, rgb_nd: ndarray) -> ndarray:
     return np.dstack((x, y, z)).squeeze()
 
 
-def _channel(data: ndarray, last_dim_idx: int or slice) -> ndarray:
+def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
     return data[..., last_dim_idx]
 
 
