@@ -3,9 +3,9 @@
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
 
-Some examples
+Some images
 ^^^^^^^^^^^^^
-Given an image like ![this one](examples/gelface.jpg), let's say we want to
+Given an image like ![this one](images/gelface.jpg), let's say we want to
 highlight the bluish regions of the image.
 
 
@@ -19,7 +19,7 @@ import imread  # a great library for reading images as numpy arrays
 import nphusl 
 
 # read in an ndarray of uint8 RGB values
-img = imread.imread("examples/gelface.jpg")
+img = imread.imread("images/gelface.jpg")
 
 # make a transformed copy of the image array
 out = img.copy()
@@ -31,7 +31,7 @@ out[bluish] = (0, 0, 255)  # highlight bluish area bright blue
 imread.imwrite("blue.jpg", out)
 ```
 
-This results in ![this image](examples/blue.jpg)
+This results in ![this image](images/blue.jpg)
 
 
 With the RGB color space
@@ -58,7 +58,7 @@ out[select] = (0, 0, 255)  # reveal the selected region
 imread.imwrite("blue_rgb.jpg", out)
 ```
 
-This results in ![this image](examples/blue_rgb.jpg)
+This results in ![this image](images/blue_rgb.jpg)
 
 
 
