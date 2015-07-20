@@ -10,6 +10,10 @@ L_MAX = 99.9999999
 L_MIN =  0.0000001
 
 
+##########################
+# color space conversions
+
+
 def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
     of HUSL values"""
@@ -212,8 +216,8 @@ def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
     return data[..., last_dim_idx]
 
 
-################################################
-# color space conversion convenience functions
+#########################
+# convenience functions
 
 
 def to_hue(rgb_img: ndarray, chunksize: int = 200):
@@ -257,6 +261,8 @@ def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
 
 
 def _chunk(end: int, chunksize: int) -> Iterator[Tuple[int, int]]:
+    """Generate tuples of (start_idx, end_idx) that breaks a sequence into
+    slices of `chunksize` length"""
     _start = 0
     if end > chunksize:
         for _end in range(chunksize, end, chunksize):
