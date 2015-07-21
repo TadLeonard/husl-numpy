@@ -212,6 +212,14 @@ def test_f_inv():
     assert husl.f_inv(val_b) == nphusl._f_inv(np.array([val_b]))[0]
     
 
+def test_luv_to_xyz():
+    img = _img()
+    xyz = nphusl.rgb_to_xyz(img)
+    luv = nphusl.xyz_to_luv(xyz)
+    xyz_2 = nphusl.luv_to_xyz(luv)
+    assert _diff(xyz_2, xyz)
+
+
 def test_channel():
     a = np.zeros((40, 40, 3))
     a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40

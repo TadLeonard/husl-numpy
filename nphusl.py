@@ -152,7 +152,8 @@ def luv_to_xyz(luv_nd: ndarray) -> ndarray:
     flat_shape = (luv_nd.size // 3, 3)
     xyz_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz array
     luv_flat = luv_nd.reshape(flat_shape)
-    L, U, V, = (_channel(luv_flat, n) for n in range(3))
+    L, U, V = (_channel(luv_flat, n) for n in range(3))
+    X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
 
     Y_var = _f_inv(L)
     L13 = 13.0 * L
