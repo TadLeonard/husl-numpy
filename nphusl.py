@@ -195,7 +195,7 @@ def lch_to_rgb(lch_nd: ndarray) -> ndarray:
 
 
 def husl_to_lch(husl_nd: ndarray) -> ndarray:
-    flat_shape = (luv_nd.size // 3, 3)
+    flat_shape = (husl_nd.size // 3, 3)
     lch_flat = np.zeros(flat_shape, dtype=np.float)
     husl_flat = husl_nd.reshape(flat_shape)
     _H, S, _L = (_channel(husl_flat, n) for n in range(3))

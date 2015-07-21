@@ -211,12 +211,13 @@ def test_f():
 ### Tests for conversion in HUSL -> RGB direction
 
 
-def test_f_inv():
-    val_a = 8 + 1.5
-    val_b = 8 - 3.5
-    assert husl.f_inv(val_a) == nphusl._f_inv(np.array([val_a]))[0]
-    assert husl.f_inv(val_b) == nphusl._f_inv(np.array([val_b]))[0]
-    
+def test_husl_to_lch():
+    img = _img()
+    lch = nphusl.rgb_to_lch(img)
+    husl = nphusl.rgb_to_husl(img)
+    lch_2 = nphusl.husl_to_lch(husl)
+    assert _diff (lch, lch_2)
+   
 
 def test_luv_to_xyz():
     img = _img()
@@ -224,6 +225,16 @@ def test_luv_to_xyz():
     luv = nphusl.xyz_to_luv(xyz)
     xyz_2 = nphusl.luv_to_xyz(luv)
     assert _diff(xyz_2, xyz)
+
+
+def test_f_inv():
+    val_a = 8 + 1.5
+    val_b = 8 - 3.5
+    assert husl.f_inv(val_a) == nphusl._f_inv(np.array([val_a]))[0]
+    assert husl.f_inv(val_b) == nphusl._f_inv(np.array([val_b]))[0]
+ 
+
+### Tests for convenience functions, utilities
 
 
 def test_channel():
