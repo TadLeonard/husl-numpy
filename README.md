@@ -86,7 +86,7 @@ black background:
 ## Example 3: Melonize
 
 As a completely arbitrary challenge, let's highlight small changes in hue.
-Well walk along the HUSL hue spectrum in steps of 5 (the HUSL hue range
+We'll walk along the HUSL hue spectrum in steps of 5 (the HUSL hue range
 runs from 0 to 360). As we walk through each hue range, we'll alternate our
 effect on the image's pixels to create green and pink striations -- a
 kind of "watermelon" effect.
