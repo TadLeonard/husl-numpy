@@ -186,6 +186,37 @@ def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
 ### Conversions in the direction of HUSL -> RGB
 
 
+def husl_to_rgb(husl_nd: ndarray) -> ndarray:
+    return lch_to_rgb(husl_to_lch(husl_nd))
+
+
+def lch_to_rgb(lch_nd: ndarray) -> ndarray:
+    return xyz_to_rgb(luv_to_xyz(lch_to_luv(lch_nd))) 
+
+
+def husl_to_lch(husl_nd: ndarray) -> ndarray:
+    flat_shape = (luv_nd.size // 3, 3)
+    lch_flat = np.zeros(flat_shape, dtype=np.float)
+    husl_flat = husl_nd.reshape(flat_shape)
+    _H, S, _L = (_channel(husl_flat, n) for n in range(3))
+    L, C, H = (_channel(lch_flat, n) for n in range(3))
+    L[:] = _L
+    H[:] = _H
+    
+    # compute max chroma for lightness and hue
+    mx = _max_lh_chroma(lch_flat)
+    C[:] = mx / 100.0 * S
+
+    # handle lightness extremes
+    L_GT = L > L_MAX
+    L_LT = L < L_MIN
+    L[L_GT] = 100
+    C[L_GT] = 0
+    L[L_LT] = 0
+    C[L_LT] = 0
+    return lch_flat.reshape(husl_nd.shape)
+
+
 def luv_to_xyz(luv_nd: ndarray) -> ndarray:
     flat_shape = (luv_nd.size // 3, 3)
     xyz_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz array
