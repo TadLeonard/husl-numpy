@@ -154,7 +154,7 @@ def luv_to_xyz(luv_nd: ndarray) -> ndarray:
     luv_flat = luv_nd.reshape(flat_shape)
     L, U, V, = (_channel(luv_flat, n) for n in range(3))
 
-    Y_var = f_inv(L)
+    Y_var = _f_inv(L)
     L13 = 13.0 * L
     with np.errstate(invalid="ignore"):  # ignore divide by zero
         U_var = U / L13 + husl.refU

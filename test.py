@@ -205,6 +205,13 @@ def test_f():
     assert husl.f(val_b) == nphusl._f(np.array([val_b]))[0]
 
 
+def test_f_inv():
+    val_a = 8 + 1.5
+    val_b = 8 - 3.5
+    assert husl.f_inv(val_a) == nphusl._f_inv(np.array([val_a]))[0]
+    assert husl.f_inv(val_b) == nphusl._f_inv(np.array([val_b]))[0]
+    
+
 def test_channel():
     a = np.zeros((40, 40, 3))
     a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40
