@@ -1,6 +1,8 @@
 # HUSL color space conversion
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
+![an image](images/gelface.jpg) [an image](images/watermelon_flat.jpg) ![an_image](images/watermelon.jpg) ![an
+image](images/watermelon_final.jpg)
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
@@ -93,35 +95,40 @@ kind of "watermelon" effect.
 
 ```python
 hsl = nphusl.to_husl(img)
-hue, _, lightness = (hsl[..., n] for n in range(3))
-pink =  1.3, 0.3, 0.6 
-green = 0.3, 1.1, 0.3
-for low, high in nphusl.chunk(360, 5):  # chunks of the hue range
+pink =  0xFF, 0x00, 0x80
+green = 0x00, 0xFF, 0x00
+chunksize = 45
+for low, high in nphusl.chunk(360, chunksize):  # chunks of the hue range
     select = np.logical_and(hue > low, hue < high)
-    is_odd = low % 10
+    is_odd = low % (chunksize * 2)
     color = pink if is_odd else green
-    out[select] *= color
+    out[select] = color
 ```
 
 This code gives us a nicely melonized face:
 
 ![this image](images/watermelon_flat.jpg)
 
-One thing I don't like about this is that the image looks somewhat flat.
+One thing I don't like about this is that the image looks flat!
 This is because our transormation focused only on *hue*. The light/dark
-regions give the image depth. We can exaggerate depth by using
+regions give the image depth. We can restore the original depth by using
 our HUSL lightness value as a multiplier.
 
 ```python
-for low, high in nphusl.chunk(100, 10):  # chunks of the lightness range
-    select = np.logical_and(lightness > low, lightness < high)
-    out[select] *= (high / 100.0)
+light_pct = lightness / 100  # lightness as a fraction of 100
+out *= light_pct[:, :, None]  # multiply 3D RGB by 2D lightness fraction
 ```
 
 That gives us the same melonized subject, but with dark regions that
 receed into the background dramatically:
 
 ![this image](images/watermelon.jpg)
+
+Finally, we can play with the `chunksize` variable to break the linear
+hue range into smaller pieces. This results in tighter, more melon-like
+striations on the subject's face. Here's the output with `chunksize = 5`:
+
+![this image](images/watermelon_final.jpg)
 
 
 
