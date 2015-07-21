@@ -73,9 +73,13 @@ This example shows the ease of selecting pixels based on perceived
 ```python
 hsl = nphusl.to_husl(img)  # a 3D array of HUSL hue, saturation, and lightness
 lightness = hsl[..., 2]  # just the lightness channel
-dark = lightness < 62  # a simple choice, since lightness is in (1..100)
+dark = lightness < 62  # a simple choice, since lightness is in (0..100)
 out[dark] = 0x00  # change selection to black
 ```
+
+This code gives us the light regions of the subject's face with a
+black background:
+
 ![this image](images/light.jpg)
 
 
@@ -111,11 +115,11 @@ our HUSL lightness value as a multiplier.
 ```python
 for low, high in nphusl.chunk(100, 10):  # chunks of the lightness range
     select = np.logical_and(lightness > low, lightness < high)
-    out[select] *= (high / 90.0)
+    out[select] *= (high / 100.0)
 ```
 
 That gives us the same melonized subject, but with dark regions that
-receed into the background more dramatically:
+receed into the background dramatically:
 
 ![this image](images/watermelon.jpg)
 
