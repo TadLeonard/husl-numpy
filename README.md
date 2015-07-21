@@ -60,7 +60,7 @@ Again, we get approximately what we hoped for:
 ![this image](images/blue_rgb.jpg)
 
 Working with plain red, green, or blue doesn't present a very challenging
-problem, but the clarity of having hue on its own separate channel are
+problem, but the clarity of having hue on its own separate channel is
 still apparent. The separation of hue and and lightness into distinct channels
 can lend even more flexibility. The next examples illustrate this.
 
