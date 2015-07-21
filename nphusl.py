@@ -10,8 +10,7 @@ L_MAX = 99.9999999
 L_MIN =  0.0000001
 
 
-##########################
-# color space conversions
+# Conversions in the direction of RGB -> HUSL
 
 
 def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
@@ -148,29 +147,6 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
-def luv_to_xyz(luv_nd: ndarray) -> ndarray:
-    flat_shape = (luv_nd.size // 3, 3)
-    xyz_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz array
-    luv_flat = luv_nd.reshape(flat_shape)
-    L, U, V = (_channel(luv_flat, n) for n in range(3))
-    X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
-
-    Y_var = _f_inv(L)
-    L13 = 13.0 * L
-    with np.errstate(invalid="ignore"):  # ignore divide by zero
-        U_var = U / L13 + husl.refU
-        V_var = V / L13 + husl.refV
-    U_var[np.isinf(U_var)] = 0  # correct divide by zero
-    V_var[np.isinf(V_var)] = 0  # correct divide by zero
-
-    Y[:] = Y_var * husl.refY
-    X[:] = -(9 * Y * U_var) / ((U_var - 4.0) * V_var - U_var * V_var)
-    Z[:] = (9.0 * Y - (15.0 * V_var * Y) - (V_var * X)) / (3.0 * V_var)
-    xyz_flat[L == 0] = 0
-    xyz_flat = np.nan_to_num(xyz_flat)
-    return xyz_flat.reshape(luv_nd.shape)
-    
-
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
     return _dot_product(husl.m_inv, rgbl)
@@ -183,16 +159,6 @@ def _f(y_nd: ndarray) -> ndarray:
     f_flat[gt] = (y_flat[gt] / husl.refY) ** (1.0 / 3.0) * 116 - 16
     f_flat[~gt] = (y_flat[~gt] / husl.refY) * husl.kappa
     return f_flat.reshape(y_nd.shape)
-
-
-def _f_inv(l_nd: ndarray) -> ndarray:
-    l_flat = l_nd.flatten()
-    large = l_nd > 8    
-    small = ~large
-    out = np.zeros(l_flat.shape, dtype=np.float)
-    out[large] = husl.refY * (((l_nd[large] + 16) / 116) ** 3.0)
-    out[small] = husl.refY * l_nd[small] / husl.kappa
-    return out.reshape(l_nd.shape)
 
 
 def _to_linear(rgb_nd: ndarray) -> ndarray:
@@ -217,8 +183,43 @@ def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
     return data[..., last_dim_idx]
 
 
-#########################
-# convenience functions
+### Conversions in the direction of HUSL -> RGB
+
+
+def luv_to_xyz(luv_nd: ndarray) -> ndarray:
+    flat_shape = (luv_nd.size // 3, 3)
+    xyz_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz array
+    luv_flat = luv_nd.reshape(flat_shape)
+    L, U, V = (_channel(luv_flat, n) for n in range(3))
+    X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
+
+    Y_var = _f_inv(L)
+    L13 = 13.0 * L
+    with np.errstate(invalid="ignore"):  # ignore divide by zero
+        U_var = U / L13 + husl.refU
+        V_var = V / L13 + husl.refV
+    U_var[np.isinf(U_var)] = 0  # correct divide by zero
+    V_var[np.isinf(V_var)] = 0  # correct divide by zero
+
+    Y[:] = Y_var * husl.refY
+    X[:] = -(9 * Y * U_var) / ((U_var - 4.0) * V_var - U_var * V_var)
+    Z[:] = (9.0 * Y - (15.0 * V_var * Y) - (V_var * X)) / (3.0 * V_var)
+    xyz_flat[L == 0] = 0
+    xyz_flat = np.nan_to_num(xyz_flat)
+    return xyz_flat.reshape(luv_nd.shape)
+    
+
+def _f_inv(l_nd: ndarray) -> ndarray:
+    l_flat = l_nd.flatten()
+    large = l_nd > 8    
+    small = ~large
+    out = np.zeros(l_flat.shape, dtype=np.float)
+    out[large] = husl.refY * (((l_nd[large] + 16) / 116) ** 3.0)
+    out[small] = husl.refY * l_nd[small] / husl.kappa
+    return out.reshape(l_nd.shape)
+
+
+### convenience functions
 
 
 def to_hue(rgb_img: ndarray, chunksize: int = 200):

@@ -5,6 +5,9 @@ import nphusl
 import husl  # the original husl-colors.org library
 
 
+### Tests for conversion in the RGB -> HUSL direction
+
+
 def test_rgb_to_husl():
     rgb_arr = _img()[:, 0]
     husl_new = nphusl.rgb_to_husl(rgb_arr)
@@ -203,6 +206,9 @@ def test_f():
     val_b = husl.epsilon - 0.003
     assert husl.f(val_a) == nphusl._f(np.array([val_a]))[0]
     assert husl.f(val_b) == nphusl._f(np.array([val_b]))[0]
+
+
+### Tests for conversion in HUSL -> RGB direction
 
 
 def test_f_inv():
