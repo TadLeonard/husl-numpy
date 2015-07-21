@@ -50,16 +50,15 @@ def hue_watermelon(img):
     out = img.copy()
     hsl = nphusl.to_husl(img)
     hue, _, lightness = (hsl[..., n] for n in range(3))
-    pink =  1.3, 0.3, 0.6 
-    green = 0.3, 1.1, 0.3
-    for low, high in nphusl.chunk(360, 5):  # chunks of the hue range
+    pink =  0xFF, 0x00, 0x80
+    green = 0x00, 0xFF, 0x00
+    chunksize = 5
+    for low, high in nphusl.chunk(360, chunksize):  # chunks of the hue range
         select = np.logical_and(hue > low, hue < high)
-        is_odd = low % 10
+        is_odd = low % (chunksize * 2)
         color = pink if is_odd else green
-        out[select] *= color
-    for low, high in nphusl.chunk(100, 10):  # chunks of the lightness range
-        select = np.logical_and(lightness > low, lightness < high)
-        out[select] *= min(1, (high / 90.0))
+        out[select] = color
+    out *= (lightness / 100)[:, :, None]
     return out, "watermelon"
 
 
