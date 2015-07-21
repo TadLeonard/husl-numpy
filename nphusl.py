@@ -194,6 +194,30 @@ def lch_to_rgb(lch_nd: ndarray) -> ndarray:
     return xyz_to_rgb(luv_to_xyz(lch_to_luv(lch_nd))) 
 
 
+def xyz_to_rgb(xyz_nd: ndarray) -> ndarray:
+    xyz_dot = _dot_product(husl.m, xyz_nd)
+    return _from_linear(xyz_dot)
+
+
+def lch_to_luv(lch_nd: ndarray) -> ndarray:
+    luv_nd = np.zeros(lch_nd.shape, dtype=np.float)
+    _L, C, H = (_channel(lch_nd, n) for n in range(3))
+    L, U, V  = (_channel(luv_nd, n) for n in range(3))
+    hrad = np.radians(H)
+    U[:] = np.cos(hrad) * C
+    V[:] = np.sin(hrad) * C
+    return luv_nd
+    
+
+def _from_linear(xyz_nd: ndarray) -> ndarray:
+    a = 12.92  # mysterious constant used in husl.from_linear
+    rgb_nd = np.zeros(xyz_nd.shape, dtype=np.float)
+    gt = xyz_nd > 0.0031308
+    rgb_nd[gt] = a * xyz_nd[gt]
+    rgb_nd[~gt] = 1.055 * (xyz_nd[~gt] ** (2 / 2.4)) - 0.055
+    return rgb_nd
+     
+
 def husl_to_lch(husl_nd: ndarray) -> ndarray:
     flat_shape = (husl_nd.size // 3, 3)
     lch_flat = np.zeros(flat_shape, dtype=np.float)
@@ -208,12 +232,12 @@ def husl_to_lch(husl_nd: ndarray) -> ndarray:
     C[:] = mx / 100.0 * S
 
     # handle lightness extremes
-    L_GT = L > L_MAX
-    L_LT = L < L_MIN
-    L[L_GT] = 100
-    C[L_GT] = 0
-    L[L_LT] = 0
-    C[L_LT] = 0
+    light= L > L_MAX
+    dark = L < L_MIN
+    L[light] = 100
+    C[light] = 0
+    L[dark] = 0
+    C[dark] = 0
     return lch_flat.reshape(husl_nd.shape)
 
 
@@ -226,15 +250,16 @@ def luv_to_xyz(luv_nd: ndarray) -> ndarray:
 
     Y_var = _f_inv(L)
     L13 = 13.0 * L
-    with np.errstate(invalid="ignore"):  # ignore divide by zero
+    with np.errstate(divide="ignore", invalid="ignore"):  # ignore divide by zero
         U_var = U / L13 + husl.refU
         V_var = V / L13 + husl.refV
     U_var[np.isinf(U_var)] = 0  # correct divide by zero
     V_var[np.isinf(V_var)] = 0  # correct divide by zero
 
     Y[:] = Y_var * husl.refY
-    X[:] = -(9 * Y * U_var) / ((U_var - 4.0) * V_var - U_var * V_var)
-    Z[:] = (9.0 * Y - (15.0 * V_var * Y) - (V_var * X)) / (3.0 * V_var)
+    with np.errstate(invalid="ignore"):
+        X[:] = -(9 * Y * U_var) / ((U_var - 4.0) * V_var - U_var * V_var)
+        Z[:] = (9.0 * Y - (15.0 * V_var * Y) - (V_var * X)) / (3.0 * V_var)
     xyz_flat[L == 0] = 0
     xyz_flat = np.nan_to_num(xyz_flat)
     return xyz_flat.reshape(luv_nd.shape)
