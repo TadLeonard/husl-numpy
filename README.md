@@ -3,16 +3,17 @@ A color space conversion library that works with `numpy` arrays. See [www.husl-c
 
 
 ## Example 1: Highlighting bluish regions
-Let's say we need to highlight the bluish regions in this image.
+Let's say we need to highlight the bluish regions in this image:
 
 ![an image](images/gelface.jpg)
 
 We'll read the image into a `numpy.ndarray` and proceed from there.
+
 ```python
 import imread  # a great library for reading images as numpy arrays
 import nphusl 
 
-# read in an ndarray of uint8 RGB values
+/# read in an ndarray of uint8 RGB values
 img = imread.imread("images/gelface.jpg")
 out = img.copy()  # the array we'll modify in the next examples
 ```
