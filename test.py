@@ -211,6 +211,17 @@ def test_f():
 ### Tests for conversion in HUSL -> RGB direction
 
 
+def test_lch_to_rgb():
+    img = _img()
+    lch = nphusl.rgb_to_lch(img)
+    rgb = nphusl.lch_to_rgb(lch)
+    assert _diff(rgb, img)
+
+
+def test_xyz_to_rgb():
+    assert False
+
+
 def test_husl_to_lch():
     img = _img()
     lch = nphusl.rgb_to_lch(img)
@@ -225,6 +236,10 @@ def test_luv_to_xyz():
     luv = nphusl.xyz_to_luv(xyz)
     xyz_2 = nphusl.luv_to_xyz(luv)
     assert _diff(xyz_2, xyz)
+
+
+def test_lch_to_luv():
+    assert False
 
 
 def test_f_inv():
