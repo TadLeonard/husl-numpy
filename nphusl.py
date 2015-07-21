@@ -206,6 +206,7 @@ def lch_to_luv(lch_nd: ndarray) -> ndarray:
     hrad = np.radians(H)
     U[:] = np.cos(hrad) * C
     V[:] = np.sin(hrad) * C
+    L[:] = _L
     return luv_nd
     
 

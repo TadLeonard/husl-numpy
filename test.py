@@ -239,7 +239,14 @@ def test_luv_to_xyz():
 
 
 def test_lch_to_luv():
-    assert False
+    img = _img()
+    lch = nphusl.rgb_to_lch(img)
+    luv = nphusl.lch_to_luv(lch)  # we're testing this
+    xyz = nphusl.rgb_to_xyz(img)
+    luv_2 = nphusl.xyz_to_luv(xyz)
+    lch_2 = nphusl.luv_to_lch(luv_2)
+    assert _diff(lch_2, lch)  # just a sanity check on RGB -> LCH
+    assert _diff(luv, luv_2)
 
 
 def test_f_inv():
