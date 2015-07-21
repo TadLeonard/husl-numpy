@@ -2,7 +2,7 @@
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
 ![an image](images/gelface.jpg) ![an image](images/blue.jpg) ![an
-image](images/light.jpg) [an image](images/watermelon_flat.jpg) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
+image](images/light.jpg) ![an image](images/watermelon_flat.jpg) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
