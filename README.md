@@ -13,17 +13,17 @@ We'll read the image into a `numpy.ndarray` and proceed from there.
 import imread  # a great library for reading images as numpy arrays
 import nphusl 
 
-/# read in an ndarray of uint8 RGB values
+# read in an ndarray of uint8 RGB values
 img = imread.imread("images/gelface.jpg")
 out = img.copy()  # the array we'll modify in the next examples
 ```
 
-
-#### With the HUSL color space
+#### Example 1A: With the HUSL color space
 
 The HUSL color space makes this pretty easy. Blue hues are roughly between
 250 and 290 in HUSL.
 
+```python
 # make a transformed copy of the image array
 hue = nphusl.to_hue(img)  # a 2D array of HUSL hue values
 bluish = np.logical_and(hue > 250, hue < 290)  # create a mask for bluish pixels
@@ -35,7 +35,7 @@ At this point, the `out` image looks like what we'd expect:
 ![this image](images/blue.jpg)
 
 
-#### With the RGB color space
+#### Example 1B: With the RGB color space
 
 With the RGB color space, we have to examine each color channel and select
 pixels that match three conditions:
