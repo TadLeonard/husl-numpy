@@ -211,11 +211,10 @@ def lch_to_luv(lch_nd: ndarray) -> ndarray:
     
 
 def _from_linear(xyz_nd: ndarray) -> ndarray:
-    a = 12.92  # mysterious constant used in husl.from_linear
     rgb_nd = np.zeros(xyz_nd.shape, dtype=np.float)
-    gt = xyz_nd > 0.0031308
-    rgb_nd[gt] = a * xyz_nd[gt]
-    rgb_nd[~gt] = 1.055 * (xyz_nd[~gt] ** (2 / 2.4)) - 0.055
+    lt = xyz_nd <= 0.0031308
+    rgb_nd[lt] = 12.92 * xyz_nd[lt]
+    rgb_nd[~lt] = 1.055 * (xyz_nd[~lt] ** (1 / 2.4)) - 0.055
     return rgb_nd
      
 
