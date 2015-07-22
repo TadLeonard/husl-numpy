@@ -219,7 +219,17 @@ def test_lch_to_rgb():
 
 
 def test_xyz_to_rgb():
-    assert False
+    img = _img()
+    xyz = nphusl.rgb_to_xyz(img)
+    rgb = nphusl.xyz_to_rgb(xyz)
+    assert _diff(img, rgb)
+
+
+def test_from_linear():
+    a = 0.003 + 0.330
+    b = 0.003 - 0.0020
+    for val in (a, b):
+        assert husl.from_linear(val) == nphusl._from_linear(np.array([val]))[0]
 
 
 def test_husl_to_lch():
