@@ -64,10 +64,9 @@ def hue_watermelon(img):
 
 
 def hue_rainbow(img, n_frames):
-    hue_delta = (360.0 / n_frames) * 1
+    hue_delta = 360.0 / n_frames
     min_lightness = 40
     max_lightness = 90
-    out = img.copy()
     hsl = nphusl.to_husl(img)
     H, S, L = (hsl[..., n] for n in range(3))
     bright = L > min_lightness
@@ -102,6 +101,6 @@ if __name__ == "__main__":
     fps = 24
     duration = n_frames / fps
     rainbow_frames = hue_rainbow(img, n_frames)
-    animation = VideoClip(lambda t: next(rainbow_frames), duration=duration)
+    animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
     animation.write_gif("video.gif", fps=fps, opt="OptimizePlus")
 
