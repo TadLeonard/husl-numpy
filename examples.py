@@ -2,6 +2,7 @@ import sys
 import imread
 import numpy as np
 import nphusl
+from moviepy.editor import VideoClip
 
 
 def reveal_blue(img):
@@ -62,9 +63,30 @@ def hue_watermelon(img):
     return out, "watermelon"
 
 
-def hue_rainbow(img):
+def hue_rainbow(img, n_frames):
+    hue_delta = (360.0 / n_frames) * 1
+    min_lightness = 40
+    max_lightness = 90
     out = img.copy()
     hsl = nphusl.to_husl(img)
+    H, S, L = (hsl[..., n] for n in range(3))
+    bright = L > min_lightness
+    hsl_bright = hsl[bright]
+    h_bright = H[bright]
+    l_bright = L[bright]
+    rgb = nphusl.to_rgb(hsl)
+    while True:
+        h_bright += hue_delta
+        np.mod(h_bright, 360.0, out=h_bright)
+        l_bright[h_bright < 60] += 1
+        l_bright[h_bright > 300] -= 1
+        l_bright[l_bright > max_lightness] = max_lightness
+        l_bright[l_bright < min_lightness] = min_lightness
+        hsl[..., 2][bright] = l_bright
+        hsl[..., 0][bright] = h_bright
+        new_rgb = nphusl.to_rgb(hsl[bright])
+        rgb[bright] = new_rgb
+        yield rgb
 
 
 if __name__ == "__main__":
@@ -75,4 +97,11 @@ if __name__ == "__main__":
     for t in transforms:
         out, name = t(img)
         imread.imwrite(name + ".jpg", out)
+
+    n_frames = 25 
+    fps = 24
+    duration = n_frames / fps
+    rainbow_frames = hue_rainbow(img, n_frames)
+    animation = VideoClip(lambda t: next(rainbow_frames), duration=duration)
+    animation.write_gif("video.gif", fps=fps, opt="OptimizePlus")
 
