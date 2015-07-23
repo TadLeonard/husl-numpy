@@ -211,6 +211,22 @@ def test_f():
 ### Tests for conversion in HUSL -> RGB direction
 
 
+def test_to_rgb():
+    img = _img()
+    int_img = np.ndarray(shape=img.shape, dtype=np.uint8)
+    int_img[:] = img * 255
+    husl = nphusl.rgb_to_husl(img)
+    rgb = nphusl.to_rgb(husl)
+    assert np.all(rgb == int_img)
+
+
+def test_husl_to_rgb():
+    img = _img()
+    husl = nphusl.rgb_to_husl(img)
+    rgb = nphusl.husl_to_rgb(husl)
+    assert _diff(img, rgb)
+
+
 def test_lch_to_rgb():
     img = _img()
     lch = nphusl.rgb_to_lch(img)
