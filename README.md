@@ -135,8 +135,7 @@ striations on the subject's face. Here's the output with `chunksize = 5`:
 
 HUSL's separate hue and lightness channels allow us to animate hue and
 lightness in clever ways with [moviepy](https://github.com/Zulko/moviepy).
-
-To produce this disco effect, we need a function that will slide the hue along
+To produce a disco effect, we need a function that will slide the hue along
 its axis, use modulo to keep it within the valid HUSL hue bounds, and adjust
 brightness periodically to create a cool "pulse" effect. Here's what it looks
 like:
@@ -172,7 +171,8 @@ around HUSL's 0-360 scale. Since HUSL's hues link together in a smooth fashion,
 these changes will never look very jarring. Next, we change the lightness
 value by a single percentage point. We either increase or decrease based on
 whether the hue is in a certain range as a way of diminishing some hues and
-bringing out others.
+bringing out others. Notice that we're making out modfications in the 
+HSL color space and then converting back to RGB with `to_rgb`.
 
 Next, we need to assemble an animation from these the frame
 generator. MoviePy makes this easy. The animation should be a perfect
