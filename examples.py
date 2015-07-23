@@ -62,6 +62,11 @@ def hue_watermelon(img):
     return out, "watermelon"
 
 
+def hue_rainbow(img):
+    out = img.copy()
+    hsl = nphusl.to_husl(img)
+
+
 if __name__ == "__main__":
     filename = sys.argv[1]
     img = imread.imread(filename)
