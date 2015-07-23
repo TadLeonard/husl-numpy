@@ -288,7 +288,13 @@ def to_hue(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
 def to_rgb(husl_img: ndarray, chunksize: int = 200) -> ndarray:
     """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
     out = np.zeros(husl_img.shape, dtype=np.uint8)
-    out = transform_rgb(husl_img, husl_to_rgb, chunksize, out)
+    chunks = chunk_img(husl_img, chunksize)
+
+    def transform(chunk):
+        float_rgb = husl_to_rgb(chunk)
+        return np.round(float_rgb * 255)  # to be cast to uint8
+    
+    chunk_transform(transform, chunks, out)
     return out
 
 
