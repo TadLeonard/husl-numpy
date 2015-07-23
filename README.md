@@ -2,9 +2,7 @@
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
 ![an image](images/gelface.jpg) ![an image](images/blue.jpg) ![an
-image](images/light.jpg) ![an image](images/watermelon_flat.jpg) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
-
-![an image](images/sapphirina.gif)
+image](images/light.jpg) ![an image](images/gelface.gif) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
@@ -189,7 +187,7 @@ animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
 animation.write_gif("video.gif", fps=fps)
 ```
 
-Let's see what our subject looks like at the discotheque:
+Here's our subject at the discotheque:
 
 ![disco](images/gelface.gif)
 
@@ -206,5 +204,5 @@ The sapphirina is a tiny crustacean known for its brilliant coloration.
 
 Here's our sapphirina at the discotheque:
 
-![sap](iamges/sapphirina.gif)
+![sap](images/sapphirina.gif)
 
