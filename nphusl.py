@@ -278,6 +278,18 @@ def _f_inv(l_nd: ndarray) -> ndarray:
 ### convenience functions
 
 
+def handle_grayscale(fn):
+    """Decorator for handling 1-channel RGB (grayscale) images."""
+    def wrapped(rgb: ndarray, *args, **kwargs):
+        if len(rgb.shape) == 2:
+            _rgb = np.ndarray(rgb.shape, dtype=rgb.dtype)
+            _rgb[::, ::, None] = rgb
+            rgb = _rgb
+        return fn(rgb, *args, **kwargs)
+    return wrapped
+
+
+@handle_grayscale
 def to_hue(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     """Convert an RGB image of integers to a 2D array of HUSL hues"""
     out = np.zeros(rgb_img.shape[:2], dtype=np.float)
@@ -298,6 +310,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = 200) -> ndarray:
     return out
 
 
+@handle_grayscale
 def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     """Convert an RGB image of integers to a 3D array of HSL values"""
     out = np.zeros(rgb_img.shape, dtype=np.float)
@@ -305,6 +318,7 @@ def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     return out
 
 
+@handle_grayscale
 def transform_rgb(rgb_img: ndarray,
                   transform: Callable[[ndarray], ndarray],
                   chunksize: int = 200, out: ndarray = None) -> ndarray:
