@@ -282,8 +282,8 @@ def handle_grayscale(fn):
     """Decorator for handling 1-channel RGB (grayscale) images."""
     def wrapped(rgb: ndarray, *args, **kwargs):
         if len(rgb.shape) == 2:
-            _rgb = np.ndarray(rgb.shape, dtype=rgb.dtype)
-            _rgb[::, ::, None] = rgb
+            _rgb = np.ndarray(rgb.shape + (3,), dtype=rgb.dtype)
+            _rgb[:] = rgb[..., None]
             rgb = _rgb
         return fn(rgb, *args, **kwargs)
     return wrapped

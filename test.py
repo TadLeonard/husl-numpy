@@ -18,6 +18,19 @@ def test_to_husl():
             assert _diff(husl_new[row, col], husl_old, 0.8)
 
 
+def test_to_husl_gray():
+    img = _img()
+    img[..., 1] = img[..., 0]
+    img[..., 2] = img[..., 0]
+    rgb_arr = img[..., 0] * 255  # single channel
+    print(rgb_arr.shape)
+    husl_new = nphusl.to_husl(rgb_arr)
+    for row in range(rgb_arr.shape[0]):
+        for col in range(rgb_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*img[row, col])
+            assert _diff(husl_new[row, col], husl_old, 0.8)
+
+
 def test_rgb_to_husl():
     rgb_arr = _img()[:, 0]
     husl_new = nphusl.rgb_to_husl(rgb_arr)
