@@ -8,6 +8,16 @@ import husl  # the original husl-colors.org library
 ### Tests for conversion in the RGB -> HUSL direction
 
 
+def test_to_husl():
+    img = _img()
+    rgb_arr = img  * 255
+    husl_new = nphusl.to_husl(rgb_arr)
+    for row in range(rgb_arr.shape[0]):
+        for col in range(rgb_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*img[row, col])
+            assert _diff(husl_new[row, col], husl_old, 0.8)
+
+
 def test_rgb_to_husl():
     rgb_arr = _img()[:, 0]
     husl_new = nphusl.rgb_to_husl(rgb_arr)
