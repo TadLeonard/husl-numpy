@@ -15,7 +15,7 @@ def test_to_husl():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff(husl_new[row, col], husl_old, 0.8)
+            assert _diff(husl_new[row, col], husl_old)
 
 
 def test_to_husl_gray():
@@ -28,7 +28,30 @@ def test_to_husl_gray():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff(husl_new[row, col], husl_old, 0.8)
+            assert _diff(husl_new[row, col], husl_old)
+
+
+def test_to_hue():
+    img = _img()
+    rgb_arr = img  * 255
+    hue_new = nphusl.to_hue(rgb_arr)
+    for row in range(rgb_arr.shape[0]):
+        for col in range(rgb_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*img[row, col])[0]
+            assert _diff(hue_new[row, col], husl_old)
+
+
+def test_to_hue_gray():
+    img = _img()
+    img[..., 1] = img[..., 0]
+    img[..., 2] = img[..., 0]
+    rgb_arr = img[..., 0] * 255  # single channel
+    print(rgb_arr.shape)
+    hue_new = nphusl.to_hue(rgb_arr)
+    for row in range(rgb_arr.shape[0]):
+        for col in range(rgb_arr.shape[1]):
+            hue_old = husl.rgb_to_husl(*img[row, col])[0]
+            assert _diff(hue_new[row, col], hue_old)
 
 
 def test_rgb_to_husl():
