@@ -3,6 +3,7 @@ import numpy as np  # type: ignore
 from numpy import ndarray  # type: ignore
 import husl
 from typing import List, Iterator, Tuple, Callable, Union
+import warnings
 
 
 # Constants used in the original husl.py for L channel comparison
@@ -279,7 +280,7 @@ def _f_inv(l_nd: ndarray) -> ndarray:
 
 
 def handle_grayscale(fn):
-    """Decorator for handling 1-channel RGB (grayscale) images."""
+    """Decorator for handling 1-channel RGB (grayscale) images"""
     def wrapped(rgb: ndarray, *args, **kwargs):
         if len(rgb.shape) == 3 and rgb.shape[-1] == 1:
             rgb = np.squeeze(rgb)
@@ -291,6 +292,22 @@ def handle_grayscale(fn):
     return wrapped
 
 
+def handle_rgba(fn):
+    """Decorator for handling 4-channel RGBA images"""
+    def wrapped(rgb: ndarray, *args, **kwargs):
+        if len(rgb.shape) == 3 and rgb.shape[-1] == 4:
+            # assume background is white because I said so
+            warnings.warn("Assuming white RGBA background!")
+            _rgb = rgb[..., :3]
+            _a = rgb[..., 3]
+            r, g, b, a = (rgb[..., n] for n in range(4))
+            _rgb[:] = (_a[..., None] / 255.0) * _rgb
+            rgb = np.round(_rgb).astype(np.uint8)
+        return fn(rgb, *args, **kwargs)
+    return wrapped
+
+
+@handle_rgba
 @handle_grayscale
 def to_hue(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     """Convert an RGB image of integers to a 2D array of HUSL hues"""
@@ -312,6 +329,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = 200) -> ndarray:
     return out
 
 
+@handle_rgba
 @handle_grayscale
 def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     """Convert an RGB image of integers to a 3D array of HSL values"""
@@ -320,6 +338,7 @@ def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
     return out
 
 
+@handle_rgba
 @handle_grayscale
 def transform_rgb(rgb_img: ndarray,
                   transform: Callable[[ndarray], ndarray],
