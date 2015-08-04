@@ -418,6 +418,18 @@ def test_handle_rgba():
     assert _diff(new_rgb, should_be)
     
 
+def test_to_hue_rgba():
+    rgb = _img()
+    rgba = np.zeros(shape=rgb.shape[:-1] + (4,), dtype=rgb.dtype)
+    rgba[..., :3] = rgb
+    alpha = 0x80  # 50%
+    rgba[..., 3] = alpha
+    ratio = alpha / 255.0
+    new_rgb = np.round(rgb * ratio).astype(dtype=np.uint8)
+    hue_from_rgba = nphusl.to_hue(rgba)
+    hue_from_rgb = nphusl.to_hue(new_rgb)
+    assert _diff(hue_from_rgba, hue_from_rgb)
+
 
 def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
