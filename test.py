@@ -404,6 +404,21 @@ def test_to_hue():
     assert np.all(as_husl[..., 0] == just_hue)
 
 
+def test_handle_rgba():
+    rgb = _img()
+    rgba = np.zeros(shape=rgb.shape[:-1] + (4,), dtype=rgb.dtype)
+    rgba[..., :3] = rgb
+    alpha = 0x80  # 50%
+    rgba[..., 3] = alpha
+    ratio = alpha / 255.0
+    do_nothing = lambda img: img
+    to_rgb = nphusl.handle_rgba(do_nothing)
+    new_rgb = to_rgb(rgba)
+    should_be = np.round(rgb * ratio).astype(np.uint8)
+    assert _diff(new_rgb, should_be)
+    
+
+
 def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
 
