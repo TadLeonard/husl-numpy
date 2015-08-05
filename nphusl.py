@@ -2,7 +2,6 @@ import math
 import numpy as np  # type: ignore
 from numpy import ndarray  # type: ignore
 import husl
-from typing import List, Iterator, Tuple, Callable, Union
 import warnings
 
 
@@ -77,7 +76,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-def _bounds(l_nd: ndarray) -> Iterator:
+def _bounds(l_nd: ndarray) -> iter:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
     np.divide(sub1, 1560896.0, out=sub1)
@@ -171,7 +170,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
     
 
-def _dot_product(scalars: List, rgb_nd: ndarray) -> ndarray:
+def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
     sum_axis = len(rgb_nd.shape) - 1
     x = np.sum(scalars[0] * rgb_nd, sum_axis)
@@ -180,7 +179,7 @@ def _dot_product(scalars: List, rgb_nd: ndarray) -> ndarray:
     return np.dstack((x, y, z)).squeeze()
 
 
-def _channel(data: ndarray, last_dim_idx: Union[int, slice]) -> ndarray:
+def _channel(data: ndarray, last_dim_idx) -> ndarray:
     return data[..., last_dim_idx]
 
 
@@ -340,8 +339,7 @@ def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
 
 @handle_rgba
 @handle_grayscale
-def transform_rgb(rgb_img: ndarray,
-                  transform: Callable[[ndarray], ndarray],
+def transform_rgb(rgb_img: ndarray, transform,
                   chunksize: int = 200, out: ndarray = None) -> ndarray:
     """Transform an `np.ndarray` of RGB ints to some other
     float represntation (i.e. HUSL)"""
@@ -356,7 +354,7 @@ def transform_rgb(rgb_img: ndarray,
     return out
 
 
-def chunk_transform(transform: Callable, chunks: Iterator,
+def chunk_transform(transform, chunks,
                     out: ndarray) -> None:
     """Transform chunks of an image and write the result to `out`"""
     for chunk, dims in chunks:
@@ -364,7 +362,7 @@ def chunk_transform(transform: Callable, chunks: Iterator,
         out[rstart: rend, cstart: cend] = transform(chunk)
 
 
-def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
+def chunk_img(img: ndarray, chunksize: int = 200):
     """Break an image into squares of length `chunksize`"""
     rows, cols = img.shape[:2]
     for row_start, row_end in chunk(rows, chunksize):
@@ -373,7 +371,7 @@ def chunk_img(img: ndarray, chunksize: int = 200) -> Iterator[ndarray]:
             yield img_slice, ((row_start, row_end), (col_start, col_end))
 
 
-def chunk(end: int, chunksize: int) -> Iterator[Tuple[int, int]]:
+def chunk(end: int, chunksize: int):
     """Generate tuples of (start_idx, end_idx) that breaks a sequence into
     slices of `chunksize` length"""
     _start = 0
