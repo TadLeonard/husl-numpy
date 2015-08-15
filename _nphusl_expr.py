@@ -4,7 +4,6 @@ import numexpr as ne
 import husl
 
 
-ne.set_num_threads(4)
 #profile = lambda fn: fn
 
 
