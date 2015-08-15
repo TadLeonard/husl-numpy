@@ -12,6 +12,9 @@ L_MIN =  0.0000001
 
 ### Optimization hooks
 
+profile = lambda fn: fn
+
+
 try:
     import numexpr as ne
     import _nphusl_expr as expr
@@ -19,15 +22,37 @@ except ImportError:
     ne = expr = None
 
 
+_OPT_DEBUG = False
+_NUMEXPR_ENABLE = True
+_CYTHON_ENABLE = True
+
+
 def numexpr_optimized(fn):
-    #return fn
-    if expr is None:
-        opt_fn = fn
-        opt_fn.optimized = None
+    expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
+    cython_fn = getattr(expr, fn.__name__, None) if _CYTHON_ENABLED else None
+    opt_fn = cython_fn or expr_fn  # prefer cython
+    result_fn = opt_fn or fn
+    if cython_fn:
+        result_fn.optimized = "cython"
+    elif expr_fn:
+        result_fn.optimized = "numexpr"
     else:
-        opt_fn = getattr(expr, fn.__name__)
-        opt_fn.optimized = "numexpr"
-    return opt_fn
+        result_fn.optimized = None
+    
+    if _OPT_DEBUG:
+        import test
+        def wrap(*args, **kwargs):
+            _std = fn(*args, **kwargs)
+            _ne = expr_fn(*args, **kwargs) if expr_fn else None
+            _cy = cython_fn(*args, **kwargs) if cython_fn else None
+            if _ne is not None:
+                assert test._diff(_std, _ne)
+            if _cy is not None:
+                assert test._diff(_std, _cy)
+            return _std
+        return wrap
+    else:
+        return expr_fn
  
 
 # Conversions in the direction of RGB -> HUSL
@@ -180,6 +205,7 @@ def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
 
 
 @profile
+@numexpr_optimized
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
@@ -189,7 +215,6 @@ def _f(y_nd: ndarray) -> ndarray:
     return f_flat.reshape(y_nd.shape)
 
 
-@profile
 @numexpr_optimized
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
