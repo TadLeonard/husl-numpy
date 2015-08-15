@@ -462,14 +462,13 @@ def _img():
 
 
 def main():
-    img_int = imread.imread(sys.argv[1])[:1000, :1000]
+    img_int = imread.imread(sys.argv[1])
     img_float = img_int / 255.0
 
     out = np.zeros(img_float.shape, dtype=np.float)
     chunks = nphusl.chunk_img(img_float)
     nphusl.chunk_transform(nphusl.rgb_to_husl, chunks, out)
     nphusl.transform_rgb(img_int, nphusl.rgb_to_husl)
-    nphusl.to_hue(img_int)
 
 
 if __name__ == "__main__":
