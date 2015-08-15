@@ -26,11 +26,13 @@ def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
     gt = y_flat > husl.epsilon
+    lt = ~gt
     y_flat_gt = y_flat[gt]
-    ref_y = hus.refY
-    f_flat[gt] = (y_flat[gt] / husl.refY) ** (1.0 / 3.0) * 116 - 16
-    f_flat[gt] = ne.evaluate("(y_flat_gt / ref_y) ** (1.0 / 3.0) * 116 - 16")
-    f_flat[~gt] = (y_flat[~gt] / husl.refY) * husl.kappa
+    y_flat_lt = y_flat[lt]
+    ref_y = husl.refY
+    kappa = husl.kappa
+    f_flat[gt] = ne.evaluate("(y_flat_gt / ref_y) ** (1. / 3.) * 116 - 16")
+    f_flat[lt] = ne.evaluate("(y_flat_lt / ref_y) * kappa")
     return f_flat.reshape(y_nd.shape)
 
 
