@@ -16,20 +16,23 @@ profile = lambda fn: fn
 
 
 try:
-    import numexpr as ne
     import _nphusl_expr as expr
 except ImportError:
-    ne = expr = None
+    expr = None
+try:
+    import _nphusl_cython as cyth
+except ImportError:
+    cyth = None
 
 
 _OPT_DEBUG = False
-_NUMEXPR_ENABLE = True
-_CYTHON_ENABLE = True
+_NUMEXPR_ENABLED = False
+_CYTHON_ENABLED = False
 
 
 def numexpr_optimized(fn):
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
-    cython_fn = getattr(expr, fn.__name__, None) if _CYTHON_ENABLED else None
+    cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
     opt_fn = cython_fn or expr_fn  # prefer cython
     result_fn = opt_fn or fn
     if cython_fn:
@@ -41,7 +44,7 @@ def numexpr_optimized(fn):
     
     if _OPT_DEBUG:
         import test
-        def wrap(*args, **kwargs):
+        def try_em_all(*args, **kwargs):
             _std = fn(*args, **kwargs)
             _ne = expr_fn(*args, **kwargs) if expr_fn else None
             _cy = cython_fn(*args, **kwargs) if cython_fn else None
@@ -50,9 +53,9 @@ def numexpr_optimized(fn):
             if _cy is not None:
                 assert test._diff(_std, _cy)
             return _std
-        return wrap
+        return try_em_all 
     else:
-        return expr_fn
+        return result_fn
  
 
 # Conversions in the direction of RGB -> HUSL
