@@ -12,7 +12,7 @@ L_MIN =  0.0000001
 
 ### Optimization hooks
 
-profile = lambda fn: fn
+#profile = lambda fn: fn
 
 
 try:
@@ -26,7 +26,7 @@ except ImportError:
 
 
 _OPT_DEBUG = False
-_NUMEXPR_ENABLED = False
+_NUMEXPR_ENABLED = True
 _CYTHON_ENABLED = False
 
 
@@ -74,7 +74,6 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
     return _channel(lch, 2)
 
 
-@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
@@ -103,7 +102,6 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
-@profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
@@ -126,7 +124,6 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-@profile
 def _bounds(l_nd: ndarray) -> iter:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
@@ -154,7 +151,6 @@ def _bounds(l_nd: ndarray) -> iter:
             yield b1, b2
 
 
-@profile
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))
@@ -165,7 +161,6 @@ def rgb_to_lch(rgb: ndarray) -> ndarray:
     return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
 
 
-@profile
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
@@ -179,7 +174,6 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
     return lch_nd
 
 
-@profile
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
@@ -201,13 +195,11 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
-@profile
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
     return _dot_product(husl.m_inv, rgbl)
 
 
-@profile
 @numexpr_optimized
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
