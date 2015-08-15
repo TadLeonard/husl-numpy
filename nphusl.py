@@ -1,6 +1,6 @@
 import math
-import numpy as np  # type: ignore
-from numpy import ndarray  # type: ignore
+import numpy as np
+from numpy import ndarray
 import husl
 import warnings
 
@@ -9,6 +9,26 @@ import warnings
 L_MAX = 99.9999999
 L_MIN =  0.0000001
 
+
+### Optimization hooks
+
+try:
+    import numexpr as ne
+    import _nphusl_expr as expr
+except ImportError:
+    ne = expr = None
+
+
+def numexpr_optimized(fn):
+    #return fn
+    if expr is None:
+        opt_fn = fn
+        opt_fn.optimized = None
+    else:
+        opt_fn = getattr(expr, fn.__name__)
+        opt_fn.optimized = "numexpr"
+    return opt_fn
+ 
 
 # Conversions in the direction of RGB -> HUSL
 
@@ -26,6 +46,7 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
     return _channel(lch, 2)
 
 
+@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
@@ -54,6 +75,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
+@profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
@@ -76,6 +98,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
+@profile
 def _bounds(l_nd: ndarray) -> iter:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
@@ -103,6 +126,7 @@ def _bounds(l_nd: ndarray) -> iter:
             yield b1, b2
 
 
+@profile
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))
@@ -113,6 +137,7 @@ def rgb_to_lch(rgb: ndarray) -> ndarray:
     return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
 
 
+@profile
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
@@ -126,6 +151,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
     return lch_nd
 
 
+@profile
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
@@ -147,11 +173,13 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
+@profile
 def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
     return _dot_product(husl.m_inv, rgbl)
 
 
+@profile
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
@@ -161,6 +189,8 @@ def _f(y_nd: ndarray) -> ndarray:
     return f_flat.reshape(y_nd.shape)
 
 
+@profile
+@numexpr_optimized
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
     xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
@@ -380,4 +410,6 @@ def chunk(end: int, chunksize: int):
             yield _start, _end
             _start = _end
     yield _start, end 
+
+
 
