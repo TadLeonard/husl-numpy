@@ -1,13 +1,31 @@
 import sys
-import numpy as np
+from functools import wraps
+
 import imread
+import numpy as np
+
 import nphusl
 import husl  # the original husl-colors.org library
 
 
 ### Tests for conversion in the RGB -> HUSL direction
 
+def try_all_optimizations(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        nphusl.enable_standard_fns()
+        std = fn(*args, **kwargs)
+        nphusl.enable_numexpr_fns()
+        n = fn(*args, **kwargs)
+        nphusl.enable_cython_fns()
+        c = fn(*args, **kwargs)
+        assert np.all(std == n)
+        assert np.all(std == c)
+        return std
+    return wrapped
 
+
+@try_all_optimizations
 def test_to_husl():
     img = _img()
     rgb_arr = img  * 255
