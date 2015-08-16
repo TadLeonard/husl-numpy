@@ -5,13 +5,10 @@ import husl
 import warnings
 
 
-# Constants used in the original husl.py for L channel comparison
-L_MAX = 99.9999999
-L_MIN =  0.0000001
+__version__ = "1.3.0"
 
 
 ### Optimization hooks
-
 
 try:
     import _nphusl_expr as expr
@@ -65,7 +62,11 @@ def enable_numexpr_fns():
         globals()[name] = fn
 
 
-# Conversions in the direction of RGB -> HUSL
+### Conversions in the direction of RGB -> HUSL
+
+
+L_MAX = 99.9999999  # max lightness from original husl.py
+L_MIN =  0.0000001
 
 
 def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
