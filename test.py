@@ -1,3 +1,4 @@
+import argparse
 import sys
 from functools import wraps
 
@@ -502,15 +503,28 @@ def _img():
     return IMG_CACHED[0]
 
 
-def main():
-    img_int = imread.imread(sys.argv[1])[:2000, :2000]
+def main(img_int, chunksize):
     img_float = img_int / 255.0
-
     out = np.zeros(img_float.shape, dtype=np.float)
-    chunks = nphusl.chunk_img(img_float, chunksize=1000)
+    chunks = nphusl.chunk_img(img_float, chunksize=chunksize)
     nphusl.chunk_transform(nphusl.rgb_to_husl, chunks, out)
-    nphusl.transform_rgb(img_int, nphusl.rgb_to_husl)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("image", type=str)
+    parser.add_argument("--optimizations", default="cython",
+                        choices=("standard", "cython", "numexpr"))
+    parser.add_argument("--image-size", type=int, default=2000)
+    parser.add_argument("--chunk-size", type=int, default=1000)
+    args = parser.parse_args()
+    if args.optimizations == "standard":
+        nphusl.enable_standard_fns()
+    elif args.optimizations == "numexpr":
+        nphusl.enable_numexpr_fns()
+    else:
+        nphusl.enable_cython_fns()
+    n = args.image_size
+    img_int = imread.imread(args.image)[:n, :n]
+    main(img_int, args.chunk_size)
+
