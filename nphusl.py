@@ -74,6 +74,7 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
     return _channel(lch, 2)
 
 
+@numexpr_optimized
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)

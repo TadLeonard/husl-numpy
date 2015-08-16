@@ -3,7 +3,9 @@ from numpy import ndarray
 import numexpr as ne
 import husl
 
-
+# Constants used in the original husl.py for L channel comparison
+L_MAX = 99.9999999
+L_MIN =  0.0000001
 M_CONSTS = np.asarray(husl.m)
 M1, M2, M3 = (M_CONSTS[..., n] for n in range(3))
 TOP1_SCALAR = 284517.0 * M1 - 94839.0 * M3
@@ -14,6 +16,32 @@ BOTTOM_CONST = 126452.0
 
 
 #profile = lambda fn: fn
+
+
+def lch_to_husl(lch_nd: ndarray) -> ndarray:
+    flat_shape = (lch_nd.size // 3, 3)
+    lch_flat = lch_nd.reshape(flat_shape)
+    _L, C, _H = (lch_flat[..., n] for n in range(3))
+    hsl_flat = np.zeros(flat_shape, dtype=np.float)
+    H, S, L = (hsl_flat[..., n] for n in range(3))
+    H[:] = _H
+    L[:] = _L
+    
+    # handle lightness extremes
+    light = _L > L_MAX
+    dark = _L < L_MIN
+    S[light] = 0.0
+    L[light] = 100.0
+    S[dark] = 0.0
+    L[dark] = 0.0
+    
+    # compute saturation for pixels that aren't too light or dark
+    remaining = ~np.logical_or(light, dark)
+    mx = _max_lh_chroma(lch_flat[remaining])
+    c_rem = C[remaining]
+    S[remaining] = ne.evaluate("(c_rem / mx) * 100.0")
+    return hsl_flat.reshape(lch_nd.shape)
+
 
 
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
