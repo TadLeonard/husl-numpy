@@ -152,6 +152,7 @@ def _bounds(l_nd: ndarray) -> iter:
             yield b1, b2
 
 
+@numexpr_optimized
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))

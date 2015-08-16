@@ -462,7 +462,7 @@ def _img():
 
 
 def main():
-    img_int = imread.imread(sys.argv[1])[:1000, :1000]
+    img_int = imread.imread(sys.argv[1])[:2000, :2000]
     img_float = img_int / 255.0
 
     out = np.zeros(img_float.shape, dtype=np.float)

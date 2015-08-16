@@ -64,3 +64,10 @@ def _bounds(l_nd: ndarray) -> iter:
         yield top1 / bottom, top2 / bottom
 
 
+
+@profile
+def _ray_length(theta: ndarray, line: list) -> ndarray:
+    m1, b1 = line
+    length = ne.evaluate("b1 / (sin(theta) - m1 * cos(theta))")
+    return length 
+
