@@ -135,7 +135,7 @@ def _bounds(l_nd: ndarray) -> iter:
     del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
     
-    # The goal here is to computer "lines" for each lightness value
+    # The goal here is to compute "lines" for each lightness value
     # Since we can be dealing with LOTS of lightness values (i.e. 4,000 x
     # 6,000), this is implemented as an iterator. Raspberry Pi and other small
     # machines can't keep too many huge arrays in memory.

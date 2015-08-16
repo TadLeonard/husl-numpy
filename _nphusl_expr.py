@@ -44,9 +44,6 @@ def _f(y_nd: ndarray) -> ndarray:
 
 @profile
 def _bounds(l_nd: ndarray) -> iter:
-    sub1 = l_nd + 16.0
-    np.power(sub1, 3, out=sub1)
-    np.divide(sub1, 1560896.0, out=sub1)
     sub1 = ne.evaluate("((l_nd + 16.0) ** 3) / 1560896.0")
     sub2 = sub1.flatten()  # flat copy
     lt_epsilon = sub2 < husl.epsilon
@@ -54,20 +51,17 @@ def _bounds(l_nd: ndarray) -> iter:
     del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
     
-    # The goal here is to computer "lines" for each lightness value
+    # The goal here is to compute "lines" for each lightness value
     # Since we can be dealing with LOTS of lightness values (i.e. 4,000 x
     # 6,000), this is implemented as an iterator. Raspberry Pi and other small
     # machines can't keep too many huge arrays in memory.
     for t1, t2, b in zip(TOP1_SCALAR, TOP2_SCALAR, BOTTOM_SCALAR):
-        for t in (0, 1):
-            top1 = sub2 * t1
-            top2 = l_nd * sub2 * t2
-            if t:
-                top2 -= (l_nd * TOP2_L_SCALAR)
-            bottom = sub2 * b
-            if t:
-                bottom += BOTTOM_CONST
-            b1, b2 = top1 / bottom, top2 / bottom
-            yield b1, b2
+        bottom = sub2 * b
+        top1 = sub2 * t1
+        top2 = l_nd * sub2 * t2
+        yield top1 / bottom, top2 / bottom
+        top2 -= (l_nd * TOP2_L_SCALAR)
+        bottom += BOTTOM_CONST
+        yield top1 / bottom, top2 / bottom
 
 
