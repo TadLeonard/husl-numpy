@@ -102,6 +102,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
+@numexpr_optimized
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
@@ -414,7 +415,7 @@ def chunk_transform(transform, chunks,
         out[rstart: rend, cstart: cend] = transform(chunk)
 
 
-def chunk_img(img: ndarray, chunksize: int = 200):
+def chunk_img(img: ndarray, chunksize: int = 1000):
     """Break an image into squares of length `chunksize`"""
     rows, cols = img.shape[:2]
     for row_start, row_end in chunk(rows, chunksize):
