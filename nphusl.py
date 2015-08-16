@@ -124,6 +124,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
+@numexpr_optimized
 def _bounds(l_nd: ndarray) -> iter:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
