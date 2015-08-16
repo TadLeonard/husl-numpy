@@ -15,9 +15,6 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-#profile = lambda fn: fn
-
-
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)

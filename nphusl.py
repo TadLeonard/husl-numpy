@@ -12,8 +12,6 @@ L_MIN =  0.0000001
 
 ### Optimization hooks
 
-#profile = lambda fn: fn
-
 
 try:
     import _nphusl_expr as expr
@@ -55,10 +53,6 @@ def enable_standard_fns():
     for name, fn in _STANDARD.items():
         globals()[name] = fn
         assert globals()[name] == fn
-    from pprint import pprint
-    pprint(_STANDARD)
-    pprint(_NUMEXPR)
-    pprint(_CYTHON)
 
 
 def enable_cython_fns():
@@ -88,7 +82,6 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
 
 
 @numexpr_optimized
-@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
