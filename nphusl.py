@@ -25,38 +25,51 @@ except ImportError:
     cyth = None
 
 
-_OPT_DEBUG = False
 _NUMEXPR_ENABLED = True
-_CYTHON_ENABLED = False
+_CYTHON_ENABLED = True
+_STANDARD = {}  # normal cpython/numpy fns
+_NUMEXPR = {}  # numexpr fns
+_CYTHON = {}  # cython extension fns
 
 
 def numexpr_optimized(fn):
+    _STANDARD[fn.__name__] = fn
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
     cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
     opt_fn = cython_fn or expr_fn  # prefer cython
     result_fn = opt_fn or fn
+    if cython_fn:
+        _CYTHON[fn.__name__] = cython_fn
+    if expr_fn:
+        _NUMEXPR[fn.__name__] = expr_fn
     if cython_fn:
         result_fn.optimized = "cython"
     elif expr_fn:
         result_fn.optimized = "numexpr"
     else:
         result_fn.optimized = None
-    
-    if _OPT_DEBUG:
-        import test
-        def try_em_all(*args, **kwargs):
-            _std = fn(*args, **kwargs)
-            _ne = expr_fn(*args, **kwargs) if expr_fn else None
-            _cy = cython_fn(*args, **kwargs) if cython_fn else None
-            if _ne is not None:
-                assert test._diff(_std, _ne)
-            if _cy is not None:
-                assert test._diff(_std, _cy)
-            return _std
-        return try_em_all 
-    else:
-        return result_fn
+    return result_fn
+
+
+def enable_standard_fns():
+    for name, fn in _STANDARD.items():
+        globals()[name] = fn
+        assert globals()[name] == fn
+    from pprint import pprint
+    pprint(_STANDARD)
+    pprint(_NUMEXPR)
+    pprint(_CYTHON)
+
+
+def enable_cython_fns():
+    for name, fn in _CYTHON.items():
+        globals()[name] = fn
  
+
+def enable_numexpr_fns():
+    for name, fn in _NUMEXPR.items():
+        globals()[name] = fn
+
 
 # Conversions in the direction of RGB -> HUSL
 
@@ -75,6 +88,7 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
 
 
 @numexpr_optimized
+@profile
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
