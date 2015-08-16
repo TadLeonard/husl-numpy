@@ -466,7 +466,7 @@ def main():
     img_float = img_int / 255.0
 
     out = np.zeros(img_float.shape, dtype=np.float)
-    chunks = nphusl.chunk_img(img_float)
+    chunks = nphusl.chunk_img(img_float, chunksize=1000)
     nphusl.chunk_transform(nphusl.rgb_to_husl, chunks, out)
     nphusl.transform_rgb(img_int, nphusl.rgb_to_husl)
 

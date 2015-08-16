@@ -57,17 +57,32 @@ def _bounds(l_nd: ndarray) -> iter:
     for t1, t2, b in zip(TOP1_SCALAR, TOP2_SCALAR, BOTTOM_SCALAR):
         bottom = sub2 * b
         top1 = sub2 * t1
-        top2 = l_nd * sub2 * t2
+        top2 = ne.evaluate("l_nd * sub2 * t2")
         yield top1 / bottom, top2 / bottom
-        top2 -= (l_nd * TOP2_L_SCALAR)
         bottom += BOTTOM_CONST
-        yield top1 / bottom, top2 / bottom
+        yield top1 / bottom, ne.evaluate(
+                "(top2 - (l_nd * TOP2_L_SCALAR)) / bottom")
 
 
-
-@profile
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = ne.evaluate("b1 / (sin(theta) - m1 * cos(theta))")
     return length 
+
+
+_2pi = np.pi * 2
+
+
+@profile
+def _max_lh_chroma(lch: ndarray) -> ndarray:
+    L, H = lch[..., 0], lch[..., 2]
+    hrad = ne.evaluate("(H / 360.0) * _2pi")
+    lengths = np.ndarray((lch.shape[0],), dtype=np.float)
+    lengths.fill(np.inf)
+    for line in _bounds(L):
+        lens = _ray_length(hrad, line)
+        lens[np.isnan(lens)] = np.inf
+        lens[lens < 0] = np.inf
+        np.minimum(lens, lengths, out=lengths)
+    return lengths
 
