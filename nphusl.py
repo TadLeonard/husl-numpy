@@ -164,6 +164,7 @@ def rgb_to_lch(rgb: ndarray) -> ndarray:
     return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
 
 
+@numexpr_optimized
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2

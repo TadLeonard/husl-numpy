@@ -16,7 +16,18 @@ BOTTOM_CONST = 126452.0
 #profile = lambda fn: fn
 
 
-@profile
+def luv_to_lch(luv_nd: ndarray) -> ndarray:
+    uv_nd = luv_nd[..., slice(1, 2)]
+    uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
+    lch_nd = luv_nd.copy()
+    U, V = luv_nd[..., 1], luv_nd[..., 2]
+    C, H = lch_nd[..., 1], lch_nd[..., 2]
+    C[:] = ne.evaluate("(U ** 2 + V ** 2) ** 0.5")
+    H[:] = np.degrees(ne.evaluate("arctan2(V, U)"))
+    H[H < 0.0] += 360.0
+    return lch_nd
+
+
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
@@ -50,7 +61,6 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
 
 
-@profile
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
