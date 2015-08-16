@@ -372,14 +372,14 @@ def handle_rgba(fn):
 
 @handle_rgba
 @handle_grayscale
-def to_hue(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
+def to_hue(rgb_img: ndarray, chunksize: int = 1000) -> ndarray:
     """Convert an RGB image of integers to a 2D array of HUSL hues"""
     out = np.zeros(rgb_img.shape[:2], dtype=np.float)
     out = transform_rgb(rgb_img, rgb_to_hue, chunksize, out)
     return out
 
 
-def to_rgb(husl_img: ndarray, chunksize: int = 200) -> ndarray:
+def to_rgb(husl_img: ndarray, chunksize: int = 1000) -> ndarray:
     """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
     out = np.zeros(husl_img.shape, dtype=np.uint8)
     chunks = chunk_img(husl_img, chunksize)
@@ -394,7 +394,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = 200) -> ndarray:
 
 @handle_rgba
 @handle_grayscale
-def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
+def to_husl(rgb_img: ndarray, chunksize: int = 1000) -> ndarray:
     """Convert an RGB image of integers to a 3D array of HSL values"""
     out = np.zeros(rgb_img.shape, dtype=np.float)
     out = transform_rgb(rgb_img, rgb_to_husl, chunksize, out)
@@ -404,7 +404,7 @@ def to_husl(rgb_img: ndarray, chunksize: int = 200) -> ndarray:
 @handle_rgba
 @handle_grayscale
 def transform_rgb(rgb_img: ndarray, transform,
-                  chunksize: int = 200, out: ndarray = None) -> ndarray:
+                  chunksize: int = 1000, out: ndarray = None) -> ndarray:
     """Transform an `np.ndarray` of RGB ints to some other
     float represntation (i.e. HUSL)"""
     chunks = chunk_img(rgb_img, chunksize)
