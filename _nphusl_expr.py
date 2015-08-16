@@ -42,7 +42,6 @@ def _f(y_nd: ndarray) -> ndarray:
     return f_flat.reshape(y_nd.shape)
 
 
-@profile
 def _bounds(l_nd: ndarray) -> iter:
     sub1 = ne.evaluate("((l_nd + 16.0) ** 3) / 1560896.0")
     sub2 = sub1.flatten()  # flat copy
