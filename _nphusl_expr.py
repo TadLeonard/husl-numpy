@@ -16,6 +16,28 @@ BOTTOM_CONST = 126452.0
 #profile = lambda fn: fn
 
 
+@profile
+def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
+    flat_shape = (xyz_nd.size // 3, 3)
+    luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
+    xyz_flat = xyz_nd.reshape(flat_shape)
+    X, Y, Z = (xyz_flat[..., n] for n in range(3))
+
+    with np.errstate(invalid="ignore"):  # ignore divide by zero
+        U_var = ne.evaluate("(4 * X) / (X + (15 * Y) + (3 * Z))")
+        V_var = ne.evaluate("(9 * Y) / (X + (15 * Y) + (3 * Z))")
+    U_var[np.isinf(U_var)] = 0  # correct divide by zero
+    V_var[np.isinf(V_var)] = 0  # correct divide by zero
+
+    L, U, V = (luv_flat[..., n] for n in range(3))
+    L[:] = _f(Y)
+    luv_flat[L == 0] = 0
+    U[:] = L * 13 * (U_var - husl.refU)
+    V[:] = L * 13 * (V_var - husl.refV)
+    luv_flat[np.isnan(luv_flat)] = 0
+    return luv_flat.reshape(xyz_nd.shape)
+
+
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
     xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
@@ -86,7 +108,6 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
     return lengths
 
 
-@profile
 def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
     xyz_nd = np.ndarray(rgb_nd.shape, dtype=np.float)

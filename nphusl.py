@@ -177,6 +177,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
     return lch_nd
 
 
+@numexpr_optimized
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
