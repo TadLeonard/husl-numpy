@@ -73,7 +73,6 @@ def _ray_length(theta: ndarray, line: list) -> ndarray:
 _2pi = np.pi * 2
 
 
-@profile
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = lch[..., 0], lch[..., 2]
     hrad = ne.evaluate("(H / 360.0) * _2pi")
@@ -85,4 +84,26 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
         lens[lens < 0] = np.inf
         np.minimum(lens, lengths, out=lengths)
     return lengths
+
+
+@profile
+def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
+    scalars = np.asarray(scalars, dtype=np.float)
+    xyz_nd = np.ndarray(rgb_nd.shape, dtype=np.float)
+    x, y, z = (xyz_nd[..., n] for n in range(3))
+    sum_axis = len(rgb_nd.shape) - 1
+    _a, _b, _c = scalars
+    
+    # Why use this silly string formatting? Because numexpr
+    # has some strange bug where, in "sum(blah, axis=somevar)"`somevar`,
+    # the `somevar` local variable is seen as being "less than 0" or "False"
+    # and it suggests using bitwise operators intead of "not".
+    # So that nonsensical bevaior is avoided by giving a literal int in the
+    # expression string.
+    expr = "sum({{const}} * rgb_nd, axis={axis})".format(axis=sum_axis)
+    x[:] = ne.evaluate(expr.format(const="_a"))
+    y[:] = ne.evaluate(expr.format(const="_b"))
+    z[:] = ne.evaluate(expr.format(const="_c"))
+    return xyz_nd
+
 

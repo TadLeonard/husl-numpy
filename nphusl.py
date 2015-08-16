@@ -223,6 +223,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
     
 
+@numexpr_optimized
 def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
     sum_axis = len(rgb_nd.shape) - 1
@@ -416,7 +417,6 @@ def chunk_transform(transform, chunks,
 
 
 def chunk_img(img: ndarray, chunksize: int = 1000):
-    """Break an image into squares of length `chunksize`"""
     rows, cols = img.shape[:2]
     for row_start, row_end in chunk(rows, chunksize):
         for col_start, col_end in chunk(cols, chunksize):
