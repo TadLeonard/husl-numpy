@@ -31,9 +31,9 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
 
     L, U, V = (luv_flat[..., n] for n in range(3))
     L[:] = _f(Y)
-    luv_flat[L == 0] = 0
-    U[:] = L * 13 * (U_var - husl.refU)
-    V[:] = L * 13 * (V_var - husl.refV)
+    ref_u, ref_v = husl.refU, husl.refV
+    U[:] = ne.evaluate("L * 13 * (U_var - ref_u)")
+    V[:] = ne.evaluate("L * 13 * (V_var - ref_v)")
     luv_flat[np.isnan(luv_flat)] = 0
     return luv_flat.reshape(xyz_nd.shape)
 
@@ -50,6 +50,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
 
 
+@profile
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
