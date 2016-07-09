@@ -22,53 +22,88 @@ cdef float[3][3] M_INV = [
 cdef float REF_X = 0.95045592705167
 cdef float REF_Y = 1.0
 cdef float REF_Z = 1.089057750759878
-cdef float REV_U = 0.19783000664283
+cdef float REF_U = 0.19783000664283
 cdef float REF_V = 0.46831999493879
 cdef float KAPPA = 903.2962962
 cdef float EPSILON = 0.0088564516
 
 
-def _test_husl_to_lch(husl):
-    cdef np.ndarray lch = husl_to_lch(husl)
-    return lch
+def _test_husl_to_rgb(husl):
+    cdef np.ndarray rgb = husl_to_rgb(husl)
+    return rgb
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] husl_to_lch(
+cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
         np.ndarray[ndim=3, dtype=double] hsl):
-    cdef int i, j
+    cdef int i, j, k
     cdef int rows = hsl.shape[0]
     cdef int cols = hsl.shape[1]
-    cdef np.ndarray[ndim=3, dtype=double] lch = (
+    cdef np.ndarray[ndim=3, dtype=double] rgb = (
         np.zeros(dtype=np.float, shape=(rows, cols, 3)))
 
     cdef float mc, chroma
     cdef float h, s, l
+    cdef float c
+    cdef float u, v
+    cdef float hrad
+    cdef float var_y, var_u, var_v
 
     for i in range(rows):
         for j in range(cols):
+            # from HSL
             h = hsl[i, j, 0]
             s = hsl[i, j, 1]
             l = hsl[i, j, 2]
+
+            # to LCH
             if l > 99.999:
-                lch[i, j, 0] = 100
-                lch[i, j, 1] = 0
-                lch[i, j, 2] = h
+                l = 100
+                c = 0
             elif l < 0.0001:
-                lch[i, j, 0] = 0
-                lch[i, j, 1] = 0
-                lch[i, j, 2] = h
+                l = 0
+                c = 0
             else:
                 mc = max_chroma(l, h)
-                chroma = mc / 100.0 * s
-                lch[i, j, 0] = l
-                lch[i, j, 1] = chroma
-                lch[i, j, 2] = h
+                c = mc / 100.0 * s
 
-    print(lch.dtype)
-    return lch
+            # to LUV
+            hrad = h / 180.0 * M_PI
+            u = cos(hrad) * c
+            v = sin(hrad) * c
+
+            # to XYZ
+            if l == 0:
+                x = y = z = 0
+            else:
+                if l > 8:
+                    var_y = REF_Y * ((l + 16.0) / 116.0) ** 3
+                else:
+                    var_y = REF_Y * l / KAPPA
+                var_u = u / (13.0 * l) + REF_U
+                var_v = v / (13.0 * l) + REF_V
+                y = var_y * REF_Y
+                x = -(9.0 * y * var_u) / ((var_u - 4.0) * var_v - var_u * var_v)
+                z = (9.0 * y - (15.0 * var_v * y) - (var_v * x)) / (3.0 * var_v)
+
+            # to RGB (finally!)
+            for k in range(3):
+                rgb[i, j, k] = _from_linear(
+                    M[k][0] * x + M[k][1] * y + M[k][2] * z)
+
+    return rgb
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef inline double _from_linear(double value):
+    if value <= 0.0031308:
+        return 12.92 * value
+    else:
+        return 1.055 * value ** (1.0/2.4) - 0.055
 
 
 cpdef _grind_max_chroma(int n, float lightness, float hue):

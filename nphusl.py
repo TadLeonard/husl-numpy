@@ -256,7 +256,7 @@ def husl_to_rgb(husl_nd: ndarray) -> ndarray:
 
 
 def lch_to_rgb(lch_nd: ndarray) -> ndarray:
-    return xyz_to_rgb(luv_to_xyz(lch_to_luv(lch_nd))) 
+    return xyz_to_rgb(luv_to_xyz(lch_to_luv(lch_nd)))
 
 
 def xyz_to_rgb(xyz_nd: ndarray) -> ndarray:
