@@ -509,8 +509,8 @@ def test_cython_perf_max_chroma():
     lch = np.zeros(shape=(1000, 3), dtype=np.float)
     lch[:, 0] = 0.25
     lch[:, 2] = 40.0
-    t_cyth = timeit.timeit("go(100000, 0.25, 40.0)", number=1, globals={"go": go_cyth})
-    t_cyth /= 10
+    t_cyth = timeit.timeit("go(10000, 0.25, 40.0)", number=1, globals={"go": go_cyth})
+    t_cyth /= 1
     t_husl = timeit.timeit("go(0.25, 40.0)", number=10000,
                        globals={"go": go_husl})
     t_nump = timeit.timeit("go(lch)", number=10, globals={"go": go_nump, "lch": lch})

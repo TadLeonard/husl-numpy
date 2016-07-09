@@ -23,7 +23,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     H, S, L = (hsl_flat[..., n] for n in range(3))
     H[:] = _H
     L[:] = _L
-    
+
     # handle lightness extremes
     light = _L > L_MAX
     dark = _L < L_MIN
@@ -31,7 +31,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     L[light] = 100.0
     S[dark] = 0.0
     L[dark] = 0.0
-    
+
     # compute saturation for pixels that aren't too light or dark
     remaining = ~np.logical_or(light, dark)
     mx = _max_lh_chroma(lch_flat[remaining])
@@ -107,7 +107,7 @@ def _bounds(l_nd: ndarray) -> iter:
     sub2[lt_epsilon] = (l_nd.flat[lt_epsilon] / husl.kappa)
     del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
-    
+
     # The goal here is to compute "lines" for each lightness value
     # Since we can be dealing with LOTS of lightness values (i.e. 4,000 x
     # 6,000), this is implemented as an iterator. Raspberry Pi and other small
@@ -125,7 +125,7 @@ def _bounds(l_nd: ndarray) -> iter:
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = ne.evaluate("b1 / (sin(theta) - m1 * cos(theta))")
-    return length 
+    return length
 
 
 _2pi = np.pi * 2
@@ -150,7 +150,7 @@ def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
     x, y, z = (xyz_nd[..., n] for n in range(3))
     sum_axis = len(rgb_nd.shape) - 1
     _a, _b, _c = scalars
-    
+
     # Why use this silly string formatting? Because numexpr
     # has some strange bug where, in "sum(blah, axis=somevar)"`somevar`,
     # the `somevar` local variable is seen as being "less than 0" or "False"
