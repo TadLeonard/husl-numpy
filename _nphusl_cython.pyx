@@ -28,9 +28,47 @@ cdef float KAPPA = 903.2962962
 cdef float EPSILON = 0.0088564516
 
 
+def _test_husl_to_lch(husl):
+    cdef np.ndarray lch = husl_to_lch(husl)
+    return lch
 
-cdef inline husl_to_lch(float hue, float saturation, float lightness):
-    
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=3, dtype=double] husl_to_lch(
+        np.ndarray[ndim=3, dtype=double] hsl):
+    cdef int i, j
+    cdef int rows = hsl.shape[0]
+    cdef int cols = hsl.shape[1]
+    cdef np.ndarray[ndim=3, dtype=double] lch = (
+        np.zeros(dtype=np.float, shape=(rows, cols, 3)))
+
+    cdef float mc, chroma
+    cdef float h, s, l
+
+    for i in range(rows):
+        for j in range(cols):
+            h = hsl[i, j, 0]
+            s = hsl[i, j, 1]
+            l = hsl[i, j, 2]
+            if l > 99.999:
+                lch[i, j, 0] = 100
+                lch[i, j, 1] = 0
+                lch[i, j, 2] = h
+            elif l < 0.0001:
+                lch[i, j, 0] = 0
+                lch[i, j, 1] = 0
+                lch[i, j, 2] = h
+            else:
+                mc = max_chroma(l, h)
+                chroma = mc / 100.0 * s
+                lch[i, j, 0] = l
+                lch[i, j, 1] = chroma
+                lch[i, j, 2] = h
+
+    print(lch.dtype)
+    return lch
 
 
 cpdef _grind_max_chroma(int n, float lightness, float hue):

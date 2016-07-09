@@ -55,7 +55,7 @@ def enable_standard_fns():
 def enable_cython_fns():
     for name, fn in _CYTHON.items():
         globals()[name] = fn
- 
+
 
 def enable_numexpr_fns():
     for name, fn in _NUMEXPR.items():
@@ -124,7 +124,7 @@ def _max_lh_chroma(lch: ndarray) -> ndarray:
         np.minimum(lens, lengths, out=lengths)
     return lengths
 
-   
+
 M_CONSTS = np.asarray(husl.m)
 M1, M2, M3 = (M_CONSTS[..., n] for n in range(3))
 TOP1_SCALAR = 284517.0 * M1 - 94839.0 * M3
