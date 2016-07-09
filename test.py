@@ -132,7 +132,7 @@ def test_lch_to_husl_3d():
             lch_old = husl.rgb_to_lch(*img[row, col])
             assert _diff(lch_old, lch_new[row, col])
             hsl_old = husl.lch_to_husl(lch_old)
-            assert _diff(hsl_new[row, col], hsl_old) 
+            assert _diff(hsl_new[row, col], hsl_old)
 
 
 @try_all_optimizations
@@ -191,7 +191,7 @@ def test_luv_to_lch_3d():
     lch_new = nphusl.luv_to_lch(luv_arr)
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
-            lch_old = husl.rgb_to_lch(*img[row, col]) 
+            lch_old = husl.rgb_to_lch(*img[row, col])
             assert _diff(lch_new[row, col], lch_old)
 
 
@@ -241,7 +241,7 @@ def test_xyz_to_luv_3d():
     luv_arr = nphusl.xyz_to_luv(xyz_arr)
     for row in range(luv_arr.shape[0]):
         for col in range(luv_arr.shape[1]):
-            old_luv = husl.xyz_to_luv(xyz_arr[row, col]) 
+            old_luv = husl.xyz_to_luv(xyz_arr[row, col])
             assert _diff(luv_arr[row, col], old_luv)
 
 
@@ -353,7 +353,7 @@ def test_husl_to_lch():
     husl = nphusl.rgb_to_husl(img)
     lch_2 = nphusl.husl_to_lch(husl)
     assert _diff (lch, lch_2)
-   
+
 
 def test_luv_to_xyz():
     img = _img()
@@ -401,7 +401,7 @@ def test_channel_assignment():
     assert np.all(nphusl._channel(a, 0) == 1)
     assert np.all(nphusl._channel(a, 1) == 2)
     assert np.all(nphusl._channel(a, 2) == 3)
-    
+
 
 def test_chunk():
     """Ensures that the chunk iterator breaks an image into NxN squares"""
@@ -433,7 +433,7 @@ def test_transform_rgb():
     img = _img()
     as_husl = nphusl.rgb_to_husl(img / 255.0)
     chunk_husl = nphusl.transform_rgb(img, nphusl.rgb_to_husl, 10)
-    assert np.all(as_husl == chunk_husl)     
+    assert np.all(as_husl == chunk_husl)
 
 
 @try_all_optimizations
@@ -456,7 +456,7 @@ def test_handle_rgba():
     new_rgb = to_rgb(rgba)
     should_be = np.round(rgb * ratio).astype(np.uint8)
     assert _diff(new_rgb, should_be)
-    
+
 
 @try_all_optimizations
 def test_to_hue_rgba():
