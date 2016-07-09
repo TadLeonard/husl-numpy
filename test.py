@@ -519,6 +519,14 @@ def test_cython_perf_max_chroma():
     assert (t_husl / t_cyth) > 80  # cython version should be better than 90x speedup
 
 
+def test_cython_husl_to_lch():
+    import _nphusl_cython as cy
+    hsl = np.ndarray(dtype=np.float, shape=(300, 300, 3))
+    hsl[:] = 200.0, 50.1, 30.4
+    lch = cy._test_husl_to_lch(hsl)
+    lch_std = husl.husl_to_lch((200.0, 50.1, 30.4))
+    assert _diff(lch, lch_std, 0.1)
+
 IMG_CACHED = [None]
 
 
