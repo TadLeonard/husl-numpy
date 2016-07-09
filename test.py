@@ -490,6 +490,35 @@ def _diff(arr_a, arr_b, diff=0.0000000001):
     return np.all(np.abs(arr_a - arr_b) < diff)
 
 
+def test_cython_max_chroma():
+    import _nphusl_cython
+    import husl
+    husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
+    cyth_chroma = _nphusl_cython._test_max_chroma(0.25, 40.0)
+    assert abs(husl_chroma - cyth_chroma) < 0.001
+
+
+def test_cython_perf_max_chroma():
+    import timeit
+    import _nphusl_cython
+    import husl
+    import nphusl
+    go_cyth = _nphusl_cython._grind_max_chroma
+    go_husl = husl.max_chroma_for_LH
+    go_nump = nphusl._max_lh_chroma
+    lch = np.zeros(shape=(1000, 3), dtype=np.float)
+    lch[:, 0] = 0.25
+    lch[:, 2] = 40.0
+    t_cyth = timeit.timeit("go(100000, 0.25, 40.0)", number=1, globals={"go": go_cyth})
+    t_cyth /= 10
+    t_husl = timeit.timeit("go(0.25, 40.0)", number=10000,
+                       globals={"go": go_husl})
+    t_nump = timeit.timeit("go(lch)", number=10, globals={"go": go_nump, "lch": lch})
+    print("\nCython: {} speedup".format(t_husl/t_cyth))
+    print("Numpy: {} speedup".format(t_husl/t_nump))
+    assert (t_husl / t_cyth) > 80  # cython version should be better than 90x speedup
+
+
 IMG_CACHED = [None]
 
 
