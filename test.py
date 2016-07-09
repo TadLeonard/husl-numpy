@@ -1,6 +1,7 @@
 import argparse
 import sys
 from functools import wraps
+import timeit
 
 import imread
 import numpy as np
@@ -492,17 +493,13 @@ def _diff(arr_a, arr_b, diff=0.0000000001):
 
 def test_cython_max_chroma():
     import _nphusl_cython
-    import husl
     husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
     cyth_chroma = _nphusl_cython._test_max_chroma(0.25, 40.0)
     assert abs(husl_chroma - cyth_chroma) < 0.001
 
 
 def test_cython_perf_max_chroma():
-    import timeit
     import _nphusl_cython
-    import husl
-    import nphusl
     go_cyth = _nphusl_cython._grind_max_chroma
     go_husl = husl.max_chroma_for_LH
     go_nump = nphusl._max_lh_chroma
@@ -519,13 +516,32 @@ def test_cython_perf_max_chroma():
     assert (t_husl / t_cyth) > 80  # cython version should be better than 90x speedup
 
 
-def test_cython_husl_to_lch():
+def test_cython_husl_to_rgb():
     import _nphusl_cython as cy
-    hsl = np.ndarray(dtype=np.float, shape=(300, 300, 3))
+    hsl = np.ndarray(dtype=np.float, shape=(9, 9, 3))
     hsl[:] = 200.0, 50.1, 30.4
-    lch = cy._test_husl_to_lch(hsl)
-    lch_std = husl.husl_to_lch((200.0, 50.1, 30.4))
-    assert _diff(lch, lch_std, 0.1)
+    rgb = cy._test_husl_to_rgb(hsl)
+    rgb_std = husl.husl_to_rgb(*(200.0, 50.1, 30.4))
+    assert _diff(rgb, rgb_std, 0.1)
+
+
+def test_perf_cython_husl_to_rgb():
+    import _nphusl_cython as cy
+    import nphusl
+    hsl = np.ndarray(dtype=np.float, shape=(1924, 1080, 3))
+    hsl[:] = 200.0, 50.1, 30.4
+    go_cy = cy._test_husl_to_rgb
+    go_ex = nphusl.husl_to_rgb
+    go_np = nphusl.husl_to_rgb
+    t_cy = timeit.timeit("go_cy(hsl)", number=1, globals=locals())
+    nphusl.enable_numexpr_fns()
+    t_ex = timeit.timeit("go_ex(hsl)", number=1, globals=locals())
+    nphusl.enable_standard_fns()
+    t_np = timeit.timeit("go_np(hsl)", number=1, globals=locals())
+    print("\n1080p image HUSL->RGB: "
+          "\nCython: {}s\nNumExpr: {}s\nNumpy: {}s".format(
+            t_cy, t_ex, t_np))
+
 
 IMG_CACHED = [None]
 
