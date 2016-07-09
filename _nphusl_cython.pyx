@@ -32,11 +32,12 @@ def _test_husl_to_rgb(husl):
     cdef np.ndarray rgb = husl_to_rgb(husl)
     return rgb
 
+
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
+cdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
         np.ndarray[ndim=3, dtype=double] hsl):
     cdef int i, j, k
     cdef int rows = hsl.shape[0]
@@ -44,12 +45,12 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
     cdef np.ndarray[ndim=3, dtype=double] rgb = (
         np.zeros(dtype=np.float, shape=(rows, cols, 3)))
 
-    cdef float mc, chroma
-    cdef float h, s, l
-    cdef float c
-    cdef float u, v
-    cdef float hrad
-    cdef float var_y, var_u, var_v
+    cdef double mc, chroma
+    cdef double h, s, l
+    cdef double c
+    cdef double u, v
+    cdef double hrad
+    cdef double var_y, var_u, var_v
 
     for i in range(rows):
         for j in range(cols):
@@ -63,8 +64,7 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
                 l = 100
                 c = 0
             elif l < 0.0001:
-                l = 0
-                c = 0
+                l = c = 0
             else:
                 mc = max_chroma(l, h)
                 c = mc / 100.0 * s
@@ -106,19 +106,19 @@ cdef inline double _from_linear(double value):
         return 1.055 * value ** (1.0/2.4) - 0.055
 
 
-cpdef _grind_max_chroma(int n, float lightness, float hue):
+cpdef _grind_max_chroma(int n, double lightness, double hue):
     for _ in range(n):
         max_chroma(lightness, hue)
 
 
-cpdef _test_max_chroma(float lightness, float hue):
+cpdef _test_max_chroma(double lightness, double hue):
     return max_chroma(lightness, hue)
 
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline float max_chroma(float lightness, float hue):
+cdef inline double max_chroma(double lightness, double hue):
     """Find max chroma given an L, H pair"""
     cdef float sub1 = ((lightness + 16.0) ** 3) / 1560896.0
     cdef float sub2 = sub1 if sub1 > EPSILON else lightness / KAPPA

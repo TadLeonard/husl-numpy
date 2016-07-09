@@ -518,7 +518,7 @@ def test_cython_perf_max_chroma():
 
 def test_cython_husl_to_rgb():
     import _nphusl_cython as cy
-    hsl = np.ndarray(dtype=np.float, shape=(9, 9, 3))
+    hsl = np.ndarray(dtype=np.float32, shape=(9, 9, 3))
     hsl[:] = 200.0, 50.1, 30.4
     rgb = cy._test_husl_to_rgb(hsl)
     rgb_std = husl.husl_to_rgb(*(200.0, 50.1, 30.4))
@@ -528,7 +528,7 @@ def test_cython_husl_to_rgb():
 def test_perf_cython_husl_to_rgb():
     import _nphusl_cython as cy
     import nphusl
-    hsl = np.ndarray(dtype=np.float, shape=(1924, 1080, 3))
+    hsl = np.ndarray(dtype=float, shape=(1924, 1080, 3))
     hsl[:] = 200.0, 50.1, 30.4
     go_cy = cy._test_husl_to_rgb
     go_ex = nphusl.husl_to_rgb
