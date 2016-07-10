@@ -11,6 +11,16 @@ image](images/light.jpg) ![an image](images/gelface.gif) ![an image](images/wate
 2. Seamless performance improvements with `NumExpr`, `Cython`, and `OpenMP` (whichever's available).
 3. Flexible `numpy` arrays as inputs and outputs. Plays nicely with `OpenCV`, `MoviePy`, etc.
 
+## Installation
+
+a. virtualenv env -p python3
+b. source env/bin/activate
+
+1. `pip install numpy`
+2a. `pip install Cython`  (preferred optimization)
+2b. `pip install NumExpr`
+3. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
+4. `pip install imread` (or `Pillow`, or anything else that `numpy` can use)
 
 ## API
 
