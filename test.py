@@ -15,10 +15,13 @@ def try_all_optimizations(fn):
     @wraps(fn)
     def wrapped(*args, **kwargs):
         nphusl.enable_standard_fns()
+        print("\nStandard numpy implementation")
         std = fn(*args, **kwargs)
         nphusl.enable_numexpr_fns()
+        print("\nNumExpr implementation")
         n = fn(*args, **kwargs)
         nphusl.enable_cython_fns()
+        print("\nCython implementation")
         c = fn(*args, **kwargs)
         assert np.all(std == n)
         assert np.all(std == c)
@@ -319,11 +322,12 @@ def test_to_rgb():
     assert np.all(rgb == int_img)
 
 
+@try_all_optimizations
 def test_husl_to_rgb():
     img = _img()
     husl = nphusl.rgb_to_husl(img)
     rgb = nphusl.husl_to_rgb(husl)
-    assert _diff(img, rgb)
+    assert _diff(img, rgb, diff=0.01)
 
 
 def test_lch_to_rgb():
@@ -501,7 +505,7 @@ def test_cython_husl_to_rgb():
     import _nphusl_cython as cy
     hsl = np.ndarray(dtype=float, shape=(9, 9, 3))
     hsl[:] = 200.0, 50.1, 30.4
-    rgb = cy._test_husl_to_rgb(hsl)
+    rgb = cy.husl_to_rgb(hsl)
     rgb_std = husl.husl_to_rgb(*(200.0, 50.1, 30.4))
     assert _diff(rgb, rgb_std, 0.1)
 
