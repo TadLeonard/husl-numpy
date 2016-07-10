@@ -27,7 +27,7 @@ _NUMEXPR = {}  # numexpr fns
 _CYTHON = {}  # cython extension fns
 
 
-def numexpr_optimized(fn):
+def optimized(fn):
     _STANDARD[fn.__name__] = fn
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
     cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
@@ -37,19 +37,12 @@ def numexpr_optimized(fn):
         _CYTHON[fn.__name__] = cython_fn
     if expr_fn:
         _NUMEXPR[fn.__name__] = expr_fn
-    if cython_fn:
-        result_fn.optimized = "cython"
-    elif expr_fn:
-        result_fn.optimized = "numexpr"
-    else:
-        result_fn.optimized = None
     return result_fn
 
 
 def enable_standard_fns():
     for name, fn in _STANDARD.items():
         globals()[name] = fn
-        assert globals()[name] == fn
 
 
 def enable_cython_fns():
@@ -82,7 +75,7 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
     return _channel(lch, 2)
 
 
-@numexpr_optimized
+@optimized
 def lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
@@ -91,7 +84,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     H, S, L = (_channel(hsl_flat, n) for n in range(3))
     H[:] = _H
     L[:] = _L
-    
+
     # handle lightness extremes
     light = _L > L_MAX
     dark = _L < L_MIN
@@ -99,7 +92,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     L[light] = 100.0
     S[dark] = 0.0
     L[dark] = 0.0
-    
+
     # compute saturation for pixels that aren't too light or dark
     remaining = ~np.logical_or(light, dark)
     mx = _max_lh_chroma(lch_flat[remaining])
@@ -111,7 +104,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 _2pi = math.pi * 2
 
 
-@numexpr_optimized
+@optimized
 def _max_lh_chroma(lch: ndarray) -> ndarray:
     L, H = (_channel(lch, n) for n in (0, 2))
     hrad = (H / 360.0) * _2pi
@@ -134,7 +127,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-@numexpr_optimized
+@optimized
 def _bounds(l_nd: ndarray) -> iter:
     sub1 = l_nd + 16.0
     np.power(sub1, 3, out=sub1)
@@ -144,7 +137,7 @@ def _bounds(l_nd: ndarray) -> iter:
     sub2[lt_epsilon] = (l_nd.flat[lt_epsilon] / husl.kappa)
     del lt_epsilon  # free NxM X sizeof(bool) memory?
     sub2 = sub2.reshape(sub1.shape)
-    
+
     # The goal here is to compute "lines" for each lightness value
     # Since we can be dealing with LOTS of lightness values (i.e. 4,000 x
     # 6,000), this is implemented as an iterator. Raspberry Pi and other small
@@ -162,18 +155,18 @@ def _bounds(l_nd: ndarray) -> iter:
             yield b1, b2
 
 
-@numexpr_optimized
+@optimized
 def _ray_length(theta: ndarray, line: list) -> ndarray:
     m1, b1 = line
     length = b1 / (np.sin(theta) - m1 * np.cos(theta))
-    return length 
+    return length
 
 
 def rgb_to_lch(rgb: ndarray) -> ndarray:
     return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
 
 
-@numexpr_optimized
+@optimized
 def luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
@@ -187,7 +180,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
     return lch_nd
 
 
-@numexpr_optimized
+@optimized
 def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
@@ -214,7 +207,7 @@ def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     return _dot_product(husl.m_inv, rgbl)
 
 
-@numexpr_optimized
+@optimized
 def _f(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
@@ -224,7 +217,7 @@ def _f(y_nd: ndarray) -> ndarray:
     return f_flat.reshape(y_nd.shape)
 
 
-@numexpr_optimized
+@optimized
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
     xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
@@ -232,9 +225,9 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     xyz_nd[gt] = ((rgb_nd[gt] + a) / (1 + a)) ** 2.4
     xyz_nd[~gt] = rgb_nd[~gt] / 12.92
     return xyz_nd
-    
 
-@numexpr_optimized
+
+@optimized
 def _dot_product(scalars: list, rgb_nd: ndarray) -> ndarray:
     scalars = np.asarray(scalars, dtype=np.float)
     sum_axis = len(rgb_nd.shape) - 1
@@ -251,6 +244,7 @@ def _channel(data: ndarray, last_dim_idx) -> ndarray:
 ### Conversions in the direction of HUSL -> RGB
 
 
+@optimized
 def husl_to_rgb(husl_nd: ndarray) -> ndarray:
     return lch_to_rgb(husl_to_lch(husl_nd))
 
@@ -273,7 +267,7 @@ def lch_to_luv(lch_nd: ndarray) -> ndarray:
     V[:] = np.sin(hrad) * C
     L[:] = _L
     return luv_nd
-    
+
 
 def _from_linear(xyz_nd: ndarray) -> ndarray:
     rgb_nd = np.zeros(xyz_nd.shape, dtype=np.float)
@@ -281,7 +275,7 @@ def _from_linear(xyz_nd: ndarray) -> ndarray:
     rgb_nd[lt] = 12.92 * xyz_nd[lt]
     rgb_nd[~lt] = 1.055 * (xyz_nd[~lt] ** (1 / 2.4)) - 0.055
     return rgb_nd
-     
+
 
 def husl_to_lch(husl_nd: ndarray) -> ndarray:
     flat_shape = (husl_nd.size // 3, 3)
@@ -291,7 +285,7 @@ def husl_to_lch(husl_nd: ndarray) -> ndarray:
     L, C, H = (_channel(lch_flat, n) for n in range(3))
     L[:] = _L
     H[:] = _H
-    
+
     # compute max chroma for lightness and hue
     mx = _max_lh_chroma(lch_flat)
     C[:] = mx / 100.0 * S
@@ -328,11 +322,11 @@ def luv_to_xyz(luv_nd: ndarray) -> ndarray:
     xyz_flat[L == 0] = 0
     xyz_flat = np.nan_to_num(xyz_flat)
     return xyz_flat.reshape(luv_nd.shape)
-    
+
 
 def _f_inv(l_nd: ndarray) -> ndarray:
     l_flat = l_nd.flatten()
-    large = l_nd > 8    
+    large = l_nd > 8
     small = ~large
     out = np.zeros(l_flat.shape, dtype=np.float)
     out[large] = husl.refY * (((l_nd[large] + 16) / 116) ** 3.0)
@@ -388,7 +382,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = 1000) -> ndarray:
     def transform(chunk):
         float_rgb = husl_to_rgb(chunk)
         return np.round(float_rgb * 255)  # to be cast to uint8
-    
+
     chunk_transform(transform, chunks, out)
     return out
 
@@ -411,10 +405,10 @@ def transform_rgb(rgb_img: ndarray, transform,
     chunks = chunk_img(rgb_img, chunksize)
     if out is None:
         out = np.zeros(rgb_img.shape, dtype=np.float)
-    
+
     def trans(chunk: ndarray) -> ndarray:
         return transform(chunk / 255.0)
-    
+
     chunk_transform(trans, chunks, out)
     return out
 
@@ -429,10 +423,13 @@ def chunk_transform(transform, chunks,
 
 def chunk_img(img: ndarray, chunksize: int = 1000):
     rows, cols = img.shape[:2]
-    for row_start, row_end in chunk(rows, chunksize):
-        for col_start, col_end in chunk(cols, chunksize):
-            img_slice = img[row_start: row_end, col_start: col_end]
-            yield img_slice, ((row_start, row_end), (col_start, col_end))
+    if chunksize:
+        for row_start, row_end in chunk(rows, chunksize):
+            for col_start, col_end in chunk(cols, chunksize):
+                img_slice = img[row_start: row_end, col_start: col_end]
+                yield img_slice, ((row_start, row_end), (col_start, col_end))
+    else:
+        yield img, ((0, rows), (0, cols))
 
 
 def chunk(end: int, chunksize: int):
@@ -443,7 +440,5 @@ def chunk(end: int, chunksize: int):
         for _end in range(chunksize, end, chunksize):
             yield _start, _end
             _start = _end
-    yield _start, end 
-
-
+    yield _start, end
 
