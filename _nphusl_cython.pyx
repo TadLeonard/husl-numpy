@@ -93,19 +93,19 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] rgb_to_hue(
+cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue(
         np.ndarray[ndim=3, dtype=double] rgb):
     cdef int i, j
     cdef int rows = rgb.shape[0]
     cdef int cols = rgb.shape[1]
-    cdef np.ndarray[ndim=3, dtype=double] husl = (
-        np.zeros(dtype=float, shape=(rows, cols, 3)))
+    cdef np.ndarray[ndim=2, dtype=double] hue = (
+        np.zeros(dtype=float, shape=(rows, cols)))
 
     cdef double r, g, b
     cdef double x, y, z
     cdef double l, u, v
     cdef double var_u, var_v
-    cdef double c, h, hrad, s
+    cdef double c, h, hrad
 
     for i in prange(rows, schedule="guided", nogil=True):
         for j in range(cols):
@@ -135,20 +135,9 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_hue(
             h = hrad * (180.0 / M_PI)
             if h < 0:
                 h = h + 360
+            hue[i, j] = h
 
-            # to HSL (finally!)
-            if l > 99.999:
-                s = 0
-                l = 100
-            elif l < 0.001:
-                s = l = 0
-            else:
-                s = c / max_chroma(l, h) * 100.0
-            husl[i, j, 0] = h
-            husl[i, j, 1] = s
-            husl[i, j, 2] = l
-
-    return husl
+    return hue
 
 
 @cython.boundscheck(False)
