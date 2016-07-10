@@ -58,10 +58,11 @@ def enable_numexpr_fns():
 ### Conversions in the direction of RGB -> HUSL
 
 
-L_MAX = 99.9999999  # max lightness from original husl.py
-L_MIN =  0.0000001
+L_MAX = 99.99  # max lightness from original husl.py
+L_MIN =  0.01
 
 
+@optimized
 def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
     of HUSL values"""
