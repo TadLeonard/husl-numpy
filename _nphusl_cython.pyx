@@ -33,7 +33,7 @@ cdef float EPSILON = 0.0088564516
 @cython.wraparound(False)
 cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
         np.ndarray[ndim=3, dtype=double] rgb):
-    cdef int i, j, k
+    cdef int i, j
     cdef int rows = rgb.shape[0]
     cdef int cols = rgb.shape[1]
     cdef np.ndarray[ndim=3, dtype=double] husl = (
@@ -43,9 +43,9 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
     cdef double x, y, z
     cdef double l, u, v
     cdef double var_u, var_v
-    cdef double c, h, hrad
+    cdef double c, h, hrad, s
 
-    for i in range(rows):#, schedule="guided", nogil=False):
+    for i in prange(rows, schedule="guided", nogil=True):
         for j in range(cols):
             # from linear RGB
             r = to_linear(rgb[i, j, 0])
@@ -72,7 +72,7 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
             hrad = atan2(v, u)
             h = hrad * (180.0 / M_PI)
             if h < 0:
-                h += 360
+                h = h + 360
 
             # to HSL (finally!)
             if l > 99.999:
@@ -102,7 +102,7 @@ cdef inline double to_light(double y_value) nogil:
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline double to_linear(double value):
+cdef inline double to_linear(double value) nogil:
     if value > 0.04045:
         return ((value + 0.055) / (1.0 + 0.055)) ** 2.4
     else:
