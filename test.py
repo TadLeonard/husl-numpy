@@ -510,6 +510,16 @@ def test_cython_husl_to_rgb():
     assert _diff(rgb, rgb_std, 0.1)
 
 
+def test_cython_rgb_to_husl():
+    import _nphusl_cython as cy
+    rgb = np.ndarray(dtype=float, shape=(1, 1, 3))
+    rgb[:] = 200.0, 9.2, 8.4
+    hsl = cy.rgb_to_husl(rgb)
+    hsl_std = husl.rgb_to_husl(*(200.0, 9.2, 8.4))
+    assert _diff(hsl, hsl_std, 0.1)
+
+
+
 IMG_CACHED = [None]
 
 
