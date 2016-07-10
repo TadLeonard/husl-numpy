@@ -3,7 +3,7 @@ cimport numpy as np
 import cython
 
 from cython.parallel import prange, parallel
-from libc.math cimport sin, cos, M_PI
+from libc.math cimport sin, cos, M_PI, atan2, sqrt
 
 
 cdef float[3][3] M = [
@@ -25,6 +25,88 @@ cdef float REF_U = 0.19783000664283
 cdef float REF_V = 0.46831999493879
 cdef float KAPPA = 903.2962962
 cdef float EPSILON = 0.0088564516
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
+        np.ndarray[ndim=3, dtype=double] rgb):
+    cdef int i, j, k
+    cdef int rows = rgb.shape[0]
+    cdef int cols = rgb.shape[1]
+    cdef np.ndarray[ndim=3, dtype=double] husl = (
+        np.zeros(dtype=float, shape=(rows, cols, 3)))
+
+    cdef double r, g, b
+    cdef double x, y, z
+    cdef double l, u, v
+    cdef double var_u, var_v
+    cdef double c, h, hrad
+
+    for i in range(rows):#, schedule="guided", nogil=False):
+        for j in range(cols):
+            # from linear RGB
+            r = to_linear(rgb[i, j, 0])
+            g = to_linear(rgb[i, j, 1])
+            b = to_linear(rgb[i, j, 2])
+
+            # to XYZ
+            x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
+            y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
+            z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
+
+            # to LUV
+            if x == y == z == 0:
+                l = u = v = 0
+            else:
+                var_u = 4 * x / (x + 15 * y + 3 * z)
+                var_v = 9 * y / (x + 15 * y + 3 * z)
+                l = to_light(y)
+                u = 13 * l * (var_u - REF_U)
+                v = 13 * l * (var_v - REF_V)
+
+            # to LCH
+            c = sqrt(u ** 2 + v ** 2)
+            hrad = atan2(v, u)
+            h = hrad * (180.0 / M_PI)
+            if h < 0:
+                h += 360
+
+            # to HSL (finally!)
+            if l > 99.999:
+                s = 0
+                l = 100
+            elif l < 0.001:
+                s = l = 0
+            else:
+                s = c / max_chroma(l, h) * 100.0
+            husl[i, j, 0] = h
+            husl[i, j, 1] = s
+            husl[i, j, 2] = l
+
+    return husl
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef inline double to_light(double y_value) nogil:
+    if y_value > EPSILON:
+        return 116 * (y_value / REF_Y) ** (1.0 / 3.0) - 16
+    else:
+        return (y_value / REF_Y) * KAPPA
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef inline double to_linear(double value):
+    if value > 0.04045:
+        return ((value + 0.055) / (1.0 + 0.055)) ** 2.4
+    else:
+        return value / 12.92
 
 
 @cython.boundscheck(False)
