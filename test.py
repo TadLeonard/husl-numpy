@@ -108,8 +108,7 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = husl.rgb_to_husl(*rgb_arr[row][col])
-            if husl_old[1] > 0.1:
-                assert _diff(husl_new[row, col], husl_old)
+            assert _diff(husl_new[row, col], husl_old)
 
 
 @try_all_optimizations
@@ -125,8 +124,6 @@ def test_lch_to_husl():
         old_lch = husl.rgb_to_lch(*rgb_arr[i, 0])
         hsl_old = husl.lch_to_husl(old_lch)
         hsl_old = husl.rgb_to_husl(*rgb_arr[i, 0])
-        if 1 > hsl_old[2] or hsl_old[2] > 99:
-            continue  # hue not accurate and light extremes
         assert _diff(lch_arr[i, 0], old_lch)
         assert _diff(hsl_from_lch_arr[i, 0], hsl_from_rgb_arr[i, 0])
 
@@ -141,8 +138,7 @@ def test_lch_to_husl_3d():
             lch_old = husl.rgb_to_lch(*img[row, col])
             assert _diff(lch_old, lch_new[row, col])
             hsl_old = husl.lch_to_husl(lch_old)
-            if hsl_old[1] > 0.1:
-                assert _diff(hsl_new[row, col], hsl_old)
+            assert _diff(hsl_new[row, col], hsl_old)
 
 
 @try_all_optimizations
