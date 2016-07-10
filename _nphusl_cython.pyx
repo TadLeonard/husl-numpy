@@ -6,25 +6,25 @@ from cython.parallel import prange, parallel
 from libc.math cimport sin, cos, M_PI, atan2, sqrt
 
 
-cdef float[3][3] M = [
+cdef double[3][3] M = [
     [3.240969941904521, -1.537383177570093, -0.498610760293],
     [-0.96924363628087, 1.87596750150772, 0.041555057407175],
     [0.055630079696993, -0.20397695888897, 1.056971514242878]
 ]
 
-cdef float[3][3] M_INV = [
+cdef double[3][3] M_INV = [
     [0.41239079926595, 0.35758433938387, 0.18048078840183],
     [0.21263900587151, 0.71516867876775, 0.072192315360733],
     [0.019330818715591, 0.11919477979462, 0.95053215224966],
 ]
 
-cdef float REF_X = 0.95045592705167
-cdef float REF_Y = 1.0
-cdef float REF_Z = 1.089057750759878
-cdef float REF_U = 0.19783000664283
-cdef float REF_V = 0.46831999493879
-cdef float KAPPA = 903.2962962
-cdef float EPSILON = 0.0088564516
+cdef double REF_X = 0.95045592705167
+cdef double REF_Y = 1.0
+cdef double REF_Z = 1.089057750759878
+cdef double REF_U = 0.19783000664283
+cdef double REF_V = 0.46831999493879
+cdef double KAPPA = 903.2962962
+cdef double EPSILON = 0.0088564516
 
 
 @cython.boundscheck(False)
