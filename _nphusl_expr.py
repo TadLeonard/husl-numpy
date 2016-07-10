@@ -37,6 +37,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
     mx = _max_lh_chroma(lch_flat[remaining])
     c_rem = C[remaining]
     S[remaining] = ne.evaluate("(c_rem / mx) * 100.0")
+
     return hsl_flat.reshape(lch_nd.shape)
 
 

@@ -75,6 +75,68 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
                 h = h + 360
 
             # to HSL (finally!)
+            if l > 99.99:
+                s = 0
+                l = 100
+            elif l < 0.01:
+                s = l = 0
+            else:
+                s = (c / max_chroma(l, h)) * 100.0
+            husl[i, j, 0] = h
+            husl[i, j, 1] = s
+            husl[i, j, 2] = l
+
+    return husl
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=3, dtype=double] rgb_to_hue(
+        np.ndarray[ndim=3, dtype=double] rgb):
+    cdef int i, j
+    cdef int rows = rgb.shape[0]
+    cdef int cols = rgb.shape[1]
+    cdef np.ndarray[ndim=3, dtype=double] husl = (
+        np.zeros(dtype=float, shape=(rows, cols, 3)))
+
+    cdef double r, g, b
+    cdef double x, y, z
+    cdef double l, u, v
+    cdef double var_u, var_v
+    cdef double c, h, hrad, s
+
+    for i in prange(rows, schedule="guided", nogil=True):
+        for j in range(cols):
+            # from linear RGB
+            r = to_linear(rgb[i, j, 0])
+            g = to_linear(rgb[i, j, 1])
+            b = to_linear(rgb[i, j, 2])
+
+            # to XYZ
+            x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
+            y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
+            z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
+
+            # to LUV
+            if x == y == z == 0:
+                l = u = v = 0
+            else:
+                var_u = 4 * x / (x + 15 * y + 3 * z)
+                var_v = 9 * y / (x + 15 * y + 3 * z)
+                l = to_light(y)
+                u = 13 * l * (var_u - REF_U)
+                v = 13 * l * (var_v - REF_V)
+
+            # to LCH
+            c = sqrt(u ** 2 + v ** 2)
+            hrad = atan2(v, u)
+            h = hrad * (180.0 / M_PI)
+            if h < 0:
+                h = h + 360
+
+            # to HSL (finally!)
             if l > 99.999:
                 s = 0
                 l = 100
@@ -169,7 +231,7 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
     return rgb
 
 
-cdef float lin_exp = 1.0 / 2.4
+cdef double lin_exp = 1.0 / 2.4
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
@@ -195,21 +257,21 @@ cpdef _test_max_chroma(double lightness, double hue):
 @cython.cdivision(True)
 cdef inline double max_chroma(double lightness, double hue) nogil:
     """Find max chroma given an L, H pair"""
-    cdef float sub1 = ((lightness + 16.0) ** 3) / 1560896.0
-    cdef float sub2 = sub1 if sub1 > EPSILON else lightness / KAPPA
-    cdef float top1
-    cdef float top2
-    cdef float top2_b
-    cdef float bottom
-    cdef float bottom_b
+    cdef double sub1 = ((lightness + 16.0) ** 3) / 1560896.0
+    cdef double sub2 = sub1 if sub1 > EPSILON else lightness / KAPPA
+    cdef double top1
+    cdef double top2
+    cdef double top2_b
+    cdef double bottom
+    cdef double bottom_b
     cdef int i
-    cdef float min_length
+    cdef double min_length
     min_length = 100000.0
-    cdef float length1, length2
-    cdef float m1, m2, b1, b2
-    cdef float theta = hue / 360.0 * M_PI * 2.0
-    cdef float sintheta = sin(theta)
-    cdef float costheta = cos(theta)
+    cdef double length1, length2
+    cdef double m1, m2, b1, b2
+    cdef double theta = hue / 360.0 * M_PI * 2.0
+    cdef double sintheta = sin(theta)
+    cdef double costheta = cos(theta)
 
     for i in range(3):
         top1 = (284517.0 * M[i][0] - 94839.0 * M[i][2]) * sub2
