@@ -2,9 +2,8 @@ import numpy as np
 cimport numpy as np
 import cython
 
+from cython.parallel import prange, parallel
 from libc.math cimport sin, cos, M_PI
-
-__version__ = "4.0.3"
 
 
 cdef float[3][3] M = [
@@ -28,55 +27,47 @@ cdef float KAPPA = 903.2962962
 cdef float EPSILON = 0.0088564516
 
 
-def _test_husl_to_rgb(husl):
-    cdef np.ndarray rgb = husl_to_rgb(husl)
-    return rgb
-
-
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
+cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
         np.ndarray[ndim=3, dtype=double] hsl):
     cdef int i, j, k
     cdef int rows = hsl.shape[0]
     cdef int cols = hsl.shape[1]
     cdef np.ndarray[ndim=3, dtype=double] rgb = (
-        np.zeros(dtype=np.float, shape=(rows, cols, 3)))
+        np.zeros(dtype=float, shape=(rows, cols, 3)))
 
-    cdef double mc, chroma
     cdef double h, s, l
     cdef double c
     cdef double u, v
+    cdef double x, y, z
     cdef double hrad
     cdef double var_y, var_u, var_v
 
-    for i in range(rows):
+    for i in prange(rows, schedule="guided", nogil=True):
         for j in range(cols):
             # from HSL
             h = hsl[i, j, 0]
             s = hsl[i, j, 1]
             l = hsl[i, j, 2]
 
-            # to LCH
-            if l > 99.999:
+            # to LCH and LUV
+            if l > 99.99:
                 l = 100
-                c = 0
-            elif l < 0.0001:
-                l = c = 0
+                c = u = v = 0
+            elif l < 0.01:
+                l = c = u = v = 0
             else:
-                mc = max_chroma(l, h)
-                c = mc / 100.0 * s
-
-            # to LUV
-            hrad = h / 180.0 * M_PI
-            u = cos(hrad) * c
-            v = sin(hrad) * c
+                c = max_chroma(l, h) / 100.0 * s
+                hrad = h / 180.0 * M_PI
+                u = cos(hrad) * c
+                v = sin(hrad) * c
 
             # to XYZ
-            if l == 0:
-                x = y = z = 0
+            if l == 0.0:
+                x = y = z = 0.0
             else:
                 if l > 8:
                     var_y = REF_Y * ((l + 16.0) / 116.0) ** 3
@@ -96,14 +87,16 @@ cdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
     return rgb
 
 
+cdef float lin_exp = 1.0 / 2.4
+
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline double _from_linear(double value):
+cdef inline double _from_linear(double value) nogil:
     if value <= 0.0031308:
         return 12.92 * value
     else:
-        return 1.055 * value ** (1.0/2.4) - 0.055
+        return 1.055 * value ** lin_exp - 0.055
 
 
 cpdef _grind_max_chroma(int n, double lightness, double hue):
@@ -118,7 +111,7 @@ cpdef _test_max_chroma(double lightness, double hue):
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline double max_chroma(double lightness, double hue):
+cdef inline double max_chroma(double lightness, double hue) nogil:
     """Find max chroma given an L, H pair"""
     cdef float sub1 = ((lightness + 16.0) ** 3) / 1560896.0
     cdef float sub2 = sub1 if sub1 > EPSILON else lightness / KAPPA
