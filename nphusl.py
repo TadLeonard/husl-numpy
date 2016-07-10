@@ -69,6 +69,7 @@ def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     return lch_to_husl(rgb_to_lch(rgb_nd))
 
 
+@optimized
 def rgb_to_hue(rgb: ndarray) -> ndarray:
     """Convenience function to return JUST the HUSL hue values
     for a given RGB image"""
