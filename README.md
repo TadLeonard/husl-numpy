@@ -4,12 +4,60 @@ A color space conversion library that works with `numpy` arrays. See [www.husl-c
 ![an image](images/gelface.jpg) ![an image](images/blue.jpg) ![an
 image](images/light.jpg) ![an image](images/gelface.gif) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
 
+
+## Features
+
+1. Fast conversion to RGB from HUSL and vice versa. Convert a 1080p image to HUSL in less than a second.
+2. Seamless performance improvements with `NumExpr`, `Cython`, and `OpenMP` (whichever's available).
+3. Flexible `numpy` arrays as inputs and outputs. Plays nicely with `OpenCV`, `MoviePy`, etc.
+
+
+## API
+
+### Setup
+
+```python
+import nphusl
+import imread # for reading images as numpy arrays
+img = imread.imread("path/to/img.jpg")
+```
+
+### The basics
+
+```python
+# convert to HUSL (HSL)
+hsl = nphusl.to_husl(img)
+
+# convert to HUSL (just hue)
+hue = nphusl.to_hue(img)
+np.all(hsl[..., 0] == hue)  # True, they're the same
+
+# back to RGB
+rgb = nphusl.to_rgb(hsl)
+np.all(rgb == img)  # True
+```
+
+### Performance considerations
+
+```python
+# Choose specific optimizations
+nphusl.enable_standard_fns()  # only numpy is used
+nphusl.enable_numexpr_fns()  # numexpr used if it's available
+nphusl.enable_cython_fns()  # cython used if it's available (fastest)
+
+# adjust chunksize for enormous images
+# this processes the image in chunks of 1000x1000 pixels, which
+# can drastically improve things if Cython isn't installed
+huge_img = imread.imread("huge.jpg")
+hsl = nphusl.to_husl(huge_img, chunksize=1000)
+```
+
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
 
 ![an image](images/gelface.jpg)
 
-We'll read the image into a `numpy.ndarray` and proceed from there.
+First, we'll load our image into a `numpy` array.
 
 ```python
 import imread  # a great library for reading images as numpy arrays
@@ -20,13 +68,9 @@ img = imread.imread("images/gelface.jpg")
 out = img.copy()  # the array we'll modify in the next examples
 ```
 
-#### Example 1A: With the HUSL color space
-
-The HUSL color space makes this pretty easy. Blue hues are roughly between
-250 and 290 in HUSL.
+Blue hues are roughly between 250 and 290 in the HUSL color space.
 
 ```python
-# make a transformed copy of the image array
 hue = nphusl.to_hue(img)  # a 2D array of HUSL hue values
 bluish = np.logical_and(hue > 250, hue < 290)  # create a mask for bluish pixels
 out[~bluish] *= 0.5  # non-bluish pixels darkened
@@ -36,10 +80,8 @@ At this point, the `out` image looks like what we'd expect:
 
 ![this image](images/blue.jpg)
 
-
-#### Example 1B: With the RGB color space
-
-With the RGB color space, we have to examine each color channel and select
+Note that this is harder to achieve with the RGB color space.
+With RGB, we have to examine each color channel and select
 pixels that match three conditions:
 
 1. a pixel's blue channel must be greater than its red channel
@@ -79,7 +121,7 @@ dark = lightness < 62  # a simple choice, since lightness is in (0..100)
 out[dark] = 0x00  # change selection to black
 ```
 
-This code gives us the light regions of the subject's face with a
+This code gives us the light regions of the subject's face against a
 black background:
 
 ![this image](images/light.jpg)
@@ -105,11 +147,11 @@ for low, high in nphusl.chunk(360, chunksize):  # chunks of the hue range
     out[select] = color
 ```
 
-This code gives us a nicely melonized face:
+This code gives us a melonized face:
 
 ![this image](images/watermelon_flat.jpg)
 
-One thing I don't like about this is that the image looks flat!
+One thing I don't like about this is that the image looks flat.
 This is because our transormation focused only on *hue*. The light/dark
 regions give the image depth. We can restore the original depth by using
 our HUSL lightness value as a multiplier.
