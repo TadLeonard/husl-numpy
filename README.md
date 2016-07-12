@@ -1,8 +1,7 @@
 # HUSL color space conversion
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
-![an image](images/gelface.jpg) ![an image](images/blue.jpg) ![an
-image](images/light.jpg) ![an image](images/gelface.gif) ![an image](images/watermelon.jpg) ![an image](images/watermelon_final.jpg)
+![an image](images/gelface.jpg) ![an image]() ![an image](images/light.jpg) ![an image](images/gelface.gif) ![animage](http://imgur.com/a/dgUpM) ![an image](images/watermelon_final.jpg)
 
 
 ## Features
@@ -17,12 +16,10 @@ a. virtualenv env -p python3
 b. source env/bin/activate
 
 1. `pip install numpy`
-2a. `pip install Cython`  (preferred optimization)
-2b. `pip install NumExpr`
+2. `pip install Cython`  (or `NumExpr`, but `Cython` is preferred)
 3. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
-4. `pip install imread` (or `Pillow`, or anything else that `numpy` can use)
 
-## API
+## Usage
 
 ### Setup
 
@@ -47,10 +44,11 @@ rgb = nphusl.to_rgb(hsl)
 np.all(rgb == img)  # True
 ```
 
-### Performance considerations
+### Performance adjustments
 
 ```python
 # Choose specific optimizations
+# By default the best available optimizations are used
 nphusl.enable_standard_fns()  # only numpy is used
 nphusl.enable_numexpr_fns()  # numexpr used if it's available
 nphusl.enable_cython_fns()  # cython used if it's available (fastest)
@@ -161,10 +159,11 @@ This code gives us a melonized face:
 
 ![this image](images/watermelon_flat.jpg)
 
-One thing I don't like about this is that the image looks flat.
+Our image looks a bit flat.
 This is because our transormation focused only on *hue*. The light/dark
-regions give the image depth. We can restore the original depth by using
-our HUSL lightness value as a multiplier.
+regions give the image depth. We can restore the image's depth by using
+lightness as a multiplier, and it's easy with HUSL 'cause lightness
+is a separate channel.
 
 ```python
 light_pct = lightness / 100  # lightness as a fraction of 100
@@ -172,7 +171,7 @@ out *= light_pct[:, :, None]  # multiply 3D RGB by 2D lightness fraction
 ```
 
 That gives us the same melonized subject, but with dark regions that
-receed into the background dramatically:
+recede into the background dramatically:
 
 ![this image](images/watermelon.jpg)
 
@@ -183,48 +182,36 @@ striations on the subject's face. Here's the output with `chunksize = 5`:
 ![this image](images/watermelon_final.jpg)
 
 
-## Example 4: Animating with hue and lightness
+## Example 4: Microwave
 
-HUSL's separate hue and lightness channels allow us to animate hue and
-lightness in clever ways with [moviepy](https://github.com/Zulko/moviepy).
-To produce a disco effect, we need a function that will slide the hue along
-its axis, use modulo to keep it within the valid HUSL hue bounds, and adjust
-brightness periodically to create a cool "pulse" effect. Here's what it looks
-like:
+HUSL's separate hue, saturation, and lightness channels allow us to animate 
+in clever ways with [moviepy](https://github.com/Zulko/moviepy).
+To produce a microwave "melt", we need a function that will create hue waves,
+select regions of high saturation, and make "drips" by sliding lightness
+values down.
 
 ```python
-def hue_rainbow(img, n_frames):
-    hue_delta = 360.0 / n_frames
-    min_lightness = 40
-    max_lightness = 90
+def microwave(img):
     hsl = nphusl.to_husl(img)
-    H, _, L = (hsl[..., n] for n in range(3))
-    bright = L > min_lightness
-    hsl_bright = hsl[bright]
-    h_bright = H[bright]
-    l_bright = L[bright]
-    rgb = nphusl.to_rgb(hsl)
+    hue, sat, lit = (hsl[..., i] for i in range(3))  # break out H, S, and L
+    rows, cols = lit.shape
+    yield nphusl.to_rgb(hsl)
     while True:
-        h_bright += hue_delta
-        np.mod(h_bright, 360.0, out=h_bright)
-        l_bright[h_bright < 60] += 1
-        l_bright[h_bright > 300] -= 1
-        l_bright[l_bright > max_lightness] = max_lightness
-        l_bright[l_bright < min_lightness] = min_lightness
-        hsl[..., 2][bright] = l_bright
-        hsl[..., 0][bright] = h_bright
-        new_rgb = nphusl.to_rgb(hsl[bright])
-        rgb[bright] = new_rgb
-        yield rgb
+        for chunk, ((rs, re), (cs, ce)) in nphusl.chunk_img(hue, chunksize=3):
+            hue_left = hue[rs, cs-1]
+            hue_up = hue[rs-1, cs]
+            this_hue = chunk[0, 0]
+            new_hue = (-random.randrange(30, 50) * (hue_up / 360)
+                       -10*random.randrange(1, 10) * (hue_left / 360))
+            new_hue = (15*this_hue + 2*new_hue) / 17
+            chunk[:] = new_hue
+            if new_hue < 0 and re < rows-1:
+                if np.max(sat[rs:re:, cs:ce]) > 70:
+                    lit[rs+1:re+1, cs:ce] = lit[rs:re, cs:ce]
+                    sat[rs+1:re+1, cs:ce] = sat[rs:re, cs:ce]
+        np.mod(hue, 360, out=hue)
+        yield nphusl.to_rgb(hsl)
 ```
-
-This generator increases hue linearly, and uses `np.mod` to have the hue wrap
-around HUSL's 0-360 scale. Since HUSL's hues link together in a smooth fashion,
-these changes will never look very jarring. Next, we change the lightness
-value by a single percentage point. We either increase or decrease based on
-whether the hue is in a certain range as a way of diminishing some hues and
-bringing out others. Notice that we're making out modfications in the 
-HSL color space and then converting back to RGB with `to_rgb`.
 
 Next, we need to assemble an animation from these the frame
 generator. MoviePy makes this easy. The animation should be a perfect
@@ -239,22 +226,5 @@ animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
 animation.write_gif("video.gif", fps=fps)
 ```
 
-Here's our subject at the discotheque:
-
-![disco](images/gelface.gif)
-
-The sapphirina is a tiny crustacean known for its brilliant coloration.
-[According to Wikipedia](https://en.wikipedia.org/wiki/Sapphirina):
-
-> Various species of male Sapphirina shine in different hues, from bright gold
-> to deep blue. This is partially due to structural coloration in which
-> microscopic layers of crystal plates inside their cells which are separated
-> by minute distances, and these distances equal the same wavelength of the
-> corresponding color of their "shine".
-
-![sap](images/sapphirina.jpg)
-
-Here's our sapphirina at the discotheque:
-
-![sap](images/sapphirina.gif)
+![microwave](http://imgur.com/a/dgUpM)
 
