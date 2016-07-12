@@ -1,7 +1,7 @@
 # HUSL color space conversion
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
-![an image](images/gelface.jpg) ![an image]() ![an image](images/light.jpg) ![an image](images/gelface.gif) ![animage](http://imgur.com/a/dgUpM) ![an image](images/watermelon_final.jpg)
+![an image](images/gelface.jpg) ![an image](images/blue.jpg) ![an image](images/light.jpg) ![an image](images/watermelon_final.jpg) ![an image](images/gelface.gif) ![an image](http://imgur.com/0pzCntV)
 
 
 ## Features
