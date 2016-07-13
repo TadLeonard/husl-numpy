@@ -27,11 +27,18 @@ cdef double KAPPA = 903.2962962
 cdef double EPSILON = 0.0088564516
 
 
+def rgb_to_husl(rgb):
+    if len(rgb.shape) == 3:
+        return rgb_to_husl_3d(rgb)
+    else:
+        return rgb_to_husl_2d(rgb)
+
+
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
+cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl_3d(
         np.ndarray[ndim=3, dtype=double] rgb):
     cdef int i, j
     cdef int rows = rgb.shape[0]
@@ -87,6 +94,68 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl(
             husl[i, j, 2] = l
 
     return husl
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
+        np.ndarray[ndim=2, dtype=double] rgb):
+    cdef int i
+    cdef int rows = rgb.shape[0]
+    cdef np.ndarray[ndim=2, dtype=double] husl = (
+        np.zeros(dtype=float, shape=(rows, 3)))
+
+    cdef double r, g, b
+    cdef double x, y, z
+    cdef double l, u, v
+    cdef double var_u, var_v
+    cdef double c, h, hrad, s
+
+    for i in prange(rows, schedule="guided", nogil=True):
+        # from linear RGB
+        r = to_linear(rgb[i, 0])
+        g = to_linear(rgb[i, 1])
+        b = to_linear(rgb[i, 2])
+
+        # to XYZ
+        x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
+        y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
+        z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
+
+        # to LUV
+        if x == y == z == 0:
+            l = u = v = 0
+        else:
+            var_u = 4 * x / (x + 15 * y + 3 * z)
+            var_v = 9 * y / (x + 15 * y + 3 * z)
+            l = to_light(y)
+            u = 13 * l * (var_u - REF_U)
+            v = 13 * l * (var_v - REF_V)
+
+        # to LCH
+        c = sqrt(u ** 2 + v ** 2)
+        hrad = atan2(v, u)
+        h = hrad * (180.0 / M_PI)
+        if h < 0:
+            h = h + 360
+
+        # to HSL (finally!)
+        if l > 99.99:
+            s = 0
+            l = 100
+        elif l < 0.01:
+            s = l = 0
+        else:
+            s = (c / max_chroma(l, h)) * 100.0
+        husl[i, 0] = h
+        husl[i, 1] = s
+        husl[i, 2] = l
+
+    return husl
+
+
 
 
 @cython.boundscheck(False)
@@ -160,11 +229,18 @@ cdef inline double to_linear(double value) nogil:
         return value / 12.92
 
 
+def husl_to_rgb(hsl):
+    if len(hsl.shape) == 3:
+        return husl_to_rgb_3d(hsl)
+    else:
+        return husl_to_rgb_2d(hsl)
+
+
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
+cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb_3d(
         np.ndarray[ndim=3, dtype=double] hsl):
     cdef int i, j, k
     cdef int rows = hsl.shape[0]
@@ -218,6 +294,65 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb(
                     M[k][0] * x + M[k][1] * y + M[k][2] * z)
 
     return rgb
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=2, dtype=double] husl_to_rgb_2d(
+        np.ndarray[ndim=2, dtype=double] hsl):
+    cdef int i, k
+    cdef int rows = hsl.shape[0]
+    cdef np.ndarray[ndim=2, dtype=double] rgb = (
+        np.zeros(dtype=float, shape=(rows, 3)))
+
+    cdef double h, s, l
+    cdef double c
+    cdef double u, v
+    cdef double x, y, z
+    cdef double hrad
+    cdef double var_y, var_u, var_v
+
+    for i in prange(rows, schedule="guided", nogil=True):
+        # from HSL
+        h = hsl[i, 0]
+        s = hsl[i, 1]
+        l = hsl[i, 2]
+
+        # to LCH and LUV
+        if l > 99.99:
+            l = 100
+            c = u = v = 0
+        elif l < 0.01:
+            l = c = u = v = 0
+        else:
+            c = max_chroma(l, h) / 100.0 * s
+            hrad = h / 180.0 * M_PI
+            u = cos(hrad) * c
+            v = sin(hrad) * c
+
+        # to XYZ
+        if l == 0.0:
+            x = y = z = 0.0
+        else:
+            if l > 8:
+                var_y = REF_Y * ((l + 16.0) / 116.0) ** 3
+            else:
+                var_y = REF_Y * l / KAPPA
+            var_u = u / (13.0 * l) + REF_U
+            var_v = v / (13.0 * l) + REF_V
+            y = var_y * REF_Y
+            x = -(9.0 * y * var_u) / ((var_u - 4.0) * var_v - var_u * var_v)
+            z = (9.0 * y - (15.0 * var_v * y) - (var_v * x)) / (3.0 * var_v)
+
+        # to RGB (finally!)
+        for k in range(3):
+            rgb[i, k] = _from_linear(
+                M[k][0] * x + M[k][1] * y + M[k][2] * z)
+
+    return rgb
+
 
 
 cdef double lin_exp = 1.0 / 2.4
