@@ -18,46 +18,38 @@ b. source env/bin/activate
 2. `pip install Cython`  (or `NumExpr`, but `Cython` is preferred)
 3. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
 
-## Usage
-
-### Setup
+# Usage Guide
+#### Setup
 
 ```python
-import nphusl
+from nphusl import to_husl, to_hue, to_rgb
 import imread # for reading images as numpy arrays
 img = imread.imread("path/to/img.jpg")
 ```
 
-### The basics
+#### The basics
+
+* `to_rgb(hsl)`: Convert HUSL array to RGB integer array
+* `to_husl(rgb)`: Convert RGB integer array or grayscale float array to HUSL array
+* `to_hue(rgb)`: Convert RGB integer array or grayscale float array to array of hue values
 
 ```python
 # convert to HUSL (HSL)
-hsl = nphusl.to_husl(img)
+hsl = to_husl(img)
 
 # convert to HUSL (just hue)
-hue = nphusl.to_hue(img)
+hue = to_hue(img)
 np.all(hsl[..., 0] == hue)  # True, they're the same
 
 # back to RGB
-rgb = nphusl.to_rgb(hsl)
+rgb = to_rgb(hsl)
 np.all(rgb == img)  # True
 ```
 
-### Performance adjustments
+#### Performance adjustments
 
-```python
-# Choose specific optimizations
-# By default the best available optimizations are used
-nphusl.enable_standard_fns()  # only numpy is used
-nphusl.enable_numexpr_fns()  # numexpr used if it's available
-nphusl.enable_cython_fns()  # cython used if it's available (fastest)
-
-# adjust chunksize for enormous images
-# this processes the image in chunks of 1000x1000 pixels, which
-# can drastically improve things if Cython isn't installed
-huge_img = imread.imread("huge.jpg")
-hsl = nphusl.to_husl(huge_img, chunksize=1000)
-```
+* For enormous images, specify `chunksize` to save memory (e.g. `to_rgb(hsl, chunksize=2000)`). Not necessary if Cython is installed.
+* To disable NumExpr or Cython optimizations, use `nphusl.enable_std_fns()`.
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
@@ -77,11 +69,11 @@ img = imread.imread("images/gelface.jpg")
 Blue hues are roughly between 250 and 290 in the HUSL color space.
 
 ```python
-hsl = nphusl.to_husl(img)  # a 3D array of hue, saturation, and lightness values
+hsl = to_husl(img)  # a 3D array of hue, saturation, and lightness values
 hue, lightness = hsl[..., 0], hsl[..., 2]  # break out hue and lightness channels
 bluish = np.logical_and(hue > 250, hue < 290)  # create a mask for bluish pixels
 lightness[~bluish] *= 0.5  # non-bluish pixels darkened
-out = nphusl.to_rgb(hsl)  # back to RGB
+out = to_rgb(hsl)  # back to RGB
 ```
 
 At this point, the `out` image looks like what we'd expect:
@@ -94,11 +86,11 @@ This example shows the ease of selecting pixels based on perceived
 "luminance" or "lightness" with HUSL.
 
 ```python
-hsl = nphusl.to_husl(img)
+hsl = to_husl(img)
 lightness = hsl[..., 2]  # just the lightness channel
 dark = lightness < 62  # a simple choice, since lightness is in (0..100)
 lightness[dark] = 0  # set dim pixels to completely dark
-out = nphusl.to_rgb(hsl)
+out = to_rgb(hsl)
 ```
 
 This code gives us the light regions of the subject's face against a
@@ -116,11 +108,12 @@ effect on the image's pixels to create green and pink striations -- a
 kind of "watermelon" effect.
 
 ```python
-hsl = nphusl.to_husl(img)
+from nphusl import chunk
+hsl = to_husl(img)
 pink =  0xFF, 0x00, 0x80
 green = 0x00, 0xFF, 0x00
 chunksize = 45
-for low, high in nphusl.chunk(360, chunksize):  # chunks of the hue range
+for low, high in chunk(360, chunksize):  # chunks of the hue range
     select = np.logical_and(hue > low, hue < high)
     is_odd = low % (chunksize * 2)
     color = pink if is_odd else green
@@ -164,12 +157,13 @@ values downward.
 
 ```python
 def microwave(img):
-    hsl = nphusl.to_husl(img)
+    from nphusl import chunk_img  # break img into blocks
+    hsl = to_husl(img)
     hue, sat, lit = (hsl[..., i] for i in range(3))  # break out H, S, and L
     rows, cols = lit.shape
-    yield nphusl.to_rgb(hsl)
+    yield to_rgb(hsl)
     while True:
-        for chunk, ((rs, re), (cs, ce)) in nphusl.chunk_img(hue, chunksize=3):
+        for chunk, ((rs, re), (cs, ce)) in chunk_img(hue, chunksize=3):
             hue_left = hue[rs, cs-1]
             hue_up = hue[rs-1, cs]
             this_hue = chunk[0, 0]
@@ -182,7 +176,7 @@ def microwave(img):
                     lit[rs+1:re+1, cs:ce] = lit[rs:re, cs:ce]
                     sat[rs+1:re+1, cs:ce] = sat[rs:re, cs:ce]
         np.mod(hue, 360, out=hue)
-        yield nphusl.to_rgb(hsl)
+        yield to_rgb(hsl)
 ```
 
 Next, we assemble an animation from these the frame
@@ -199,4 +193,10 @@ animation.write_gif("microwave.gif", fps=fps)
 ```
 
 ![microwave](http://imgur.com/0BAP3RX.gif)
+
+
+## Melonize revisited
+By incrementing `chunksize` for successive frames, we can produce a nice "melonize" animation:
+
+![melonize](https://i.imgur.com/Arv5BDt.gif)
 
