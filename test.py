@@ -30,7 +30,17 @@ def try_all_optimizations(fn):
 
 
 @try_all_optimizations
-def test_to_husl():
+def test_to_husl_2d():
+    img = _img()[0]
+    rgb_arr = img  * 255
+    husl_new = nphusl.to_husl(rgb_arr)
+    for row in range(rgb_arr.shape[0]):
+        husl_old = husl.rgb_to_husl(*img[row])
+        assert _diff(husl_new[row], husl_old)
+
+
+@try_all_optimizations
+def test_to_husl_3d():
     img = _img()
     rgb_arr = img  * 255
     husl_new = nphusl.to_husl(rgb_arr)
@@ -316,8 +326,19 @@ def test_f():
 ### Tests for conversion in HUSL -> RGB direction
 
 
-def test_to_rgb():
+@try_all_optimizations
+def test_to_rgb_3d():
     img = _img()
+    int_img = np.ndarray(shape=img.shape, dtype=np.uint8)
+    int_img[:] = img * 255
+    husl = nphusl.rgb_to_husl(img)
+    rgb = nphusl.to_rgb(husl)
+    assert np.all(rgb == int_img)
+
+
+@try_all_optimizations
+def test_to_rgb_2d():
+    img = _img()[:, 0]
     int_img = np.ndarray(shape=img.shape, dtype=np.uint8)
     int_img[:] = img * 255
     husl = nphusl.rgb_to_husl(img)
@@ -445,7 +466,15 @@ def test_transform_rgb():
 
 @try_all_optimizations
 def test_to_hue():
-    img = _img()
+    img = _img()[0]  # 2D
+    as_husl = nphusl.to_husl(img)
+    just_hue = nphusl.to_hue(img)
+    assert _diff(as_husl[..., 0], just_hue)
+
+
+@try_all_optimizations
+def test_to_hue_3d():
+    img = _img()  # 3D
     as_husl = nphusl.rgb_to_husl(img / 255.0)
     just_hue = nphusl.to_hue(img)
     assert _diff(as_husl[..., 0], just_hue)
@@ -479,9 +508,7 @@ def test_to_husl_rgba():
     assert _diff(hsl_from_rgba, hsl_from_rgb)
 
 
-def _diff(arr_a, arr_b, diff=0.001):
-    a = np.nan_to_num(arr_a)
-    b = np.nan_to_num(arr_b)
+def _diff(a, b, diff=0.001):
     return np.all(np.abs(a - b) < diff)
 
 
