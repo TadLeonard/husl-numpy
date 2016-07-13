@@ -1,5 +1,5 @@
 # HUSL color space conversion
-A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
+A color space conversion library that works with [numpy](http://numpy.org). See [http://husl-colors.org](www.husl-colors.org) to learn about the HUSL color space.
 
 ![an image](images/gelface.jpg) ![an image](images/light.jpg) ![an image](images/watermelon_final.jpg) ![](images/gelface.gif) ![an image](https://i.imgur.com/Arv5BDt.gif) ![](http://imgur.com/B3XiGOm.gif) ![](http://imgur.com/0BAP3RX.gif)
 
@@ -72,49 +72,21 @@ import nphusl
 
 # read in an ndarray of uint8 RGB values
 img = imread.imread("images/gelface.jpg")
-out = img.copy()  # the array we'll modify in the next examples
 ```
 
 Blue hues are roughly between 250 and 290 in the HUSL color space.
 
 ```python
-hue = nphusl.to_hue(img)  # a 2D array of HUSL hue values
+hsl = nphusl.to_husl(img)  # a 3D array of hue, saturation, and lightness values
+hue, lightness = hsl[..., 0], hsl[..., 2]  # break out hue and lightness channels
 bluish = np.logical_and(hue > 250, hue < 290)  # create a mask for bluish pixels
-out[~bluish] *= 0.5  # non-bluish pixels darkened
+lightness[~bluish] *= 0.5  # non-bluish pixels darkened
+out = nphusl.to_rgb(hsl)  # back to RGB
 ```
 
 At this point, the `out` image looks like what we'd expect:
 
 ![this image](images/blue.jpg)
-
-Note that this is harder to achieve with the RGB color space.
-With RGB, we have to examine each color channel and select
-pixels that match three conditions:
-
-1. a pixel's blue channel must be greater than its red channel
-2. a pixel's blue channel must be greater than its green channel
-3. a pixel's blue channel must be greater than some arbitrary number
-   (depending on just *how blue* we want our selection to be)
-
-```python
-R, G, B = (img[..., n] for n in range(3))  # break out RGB color channels
-
-# we'll try to create a bluish selection by choosing pixels for which
-# the blue channel has a greater value than the others
-bluish = np.logical_and(B > R, B > G)  # no overpowering red or green
-bluish = np.logical_and(bluish, B > 125)  # strong enough blue channel
-out[~bluish] *= 0.5  # non-bluish pixels darkened
-```
-
-Again, we get approximately what we hoped for:
-
-![this image](images/blue_rgb.jpg)
-
-Working with plain red, green, or blue doesn't present a very challenging
-problem, but the clarity of having hue on its own separate channel is
-still apparent. The separation of hue and and lightness into distinct channels
-can lend even more flexibility. The next examples illustrate this.
-
 
 ## Example 2: Highlighting bright regions
 
@@ -122,10 +94,11 @@ This example shows the ease of selecting pixels based on perceived
 "luminance" or "lightness" with HUSL.
 
 ```python
-hsl = nphusl.to_husl(img)  # a 3D array of HUSL hue, saturation, and lightness
+hsl = nphusl.to_husl(img)
 lightness = hsl[..., 2]  # just the lightness channel
 dark = lightness < 62  # a simple choice, since lightness is in (0..100)
-out[dark] = 0x00  # change selection to black
+lightness[dark] = 0  # set dim pixels to completely dark
+out = nphusl.to_rgb(hsl)
 ```
 
 This code gives us the light regions of the subject's face against a
@@ -183,11 +156,11 @@ striations on the subject's face. Here's the output with `chunksize = 5`:
 
 ## Example 4: Microwave
 
-HUSL's separate hue, saturation, and lightness channels allow us to animate 
-in clever ways with [moviepy](https://github.com/Zulko/moviepy).
-To produce a microwave "melt", we need a function that will create hue waves,
-select regions of high saturation, and make "drips" by sliding lightness
-values down.
+Now we'll microwave our subject by by using all three HUSL channels at once
+and [moviepy](https://github.com/Zulko/moviepy) to make a GIF.
+To produce a microwave "melt", we need a function that will form hue waves,
+mask regions of high saturation, and make "drips" by sliding lightness
+values downward.
 
 ```python
 def microwave(img):
@@ -212,7 +185,7 @@ def microwave(img):
         yield nphusl.to_rgb(hsl)
 ```
 
-Next, we need to assemble an animation from these the frame
+Next, we assemble an animation from these the frame
 generator. MoviePy makes this easy. The animation should be a perfect
 loop, so we calculate the duration based on `n_frames` and `fps`.
 
@@ -222,7 +195,7 @@ fps = 24
 duration = n_frames / fps
 rainbow_frames = hue_rainbow(img, n_frames)
 animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
-animation.write_gif("video.gif", fps=fps)
+animation.write_gif("microwave.gif", fps=fps)
 ```
 
 ![microwave](http://imgur.com/0BAP3RX.gif)
