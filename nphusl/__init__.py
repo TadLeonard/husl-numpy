@@ -7,7 +7,7 @@ The basics:
 * to_hue(rgb): Convert RGB integer array or grayscale float array to array of hue values
 """
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 from . import nphusl as _nphusl
 from .nphusl import *

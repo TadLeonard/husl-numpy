@@ -1,7 +1,12 @@
+import sys
 from setuptools import setup, Extension
 from nphusl import __version__
 import numpy
-from Cython.Build import cythonize
+if "--use-cython" in sys.argv:
+    sys.argv.remove("--use-cython")
+    USE_CYTHON = True
+else:
+    USE_CYTHON = False
 
 
 url = "https://github.com/TadLeonard/husl-numpy"
@@ -62,18 +67,23 @@ classifiers = [
   'Topic :: Multimedia :: Graphics',
 ]
 
+ext = '.pyx' if USE_CYTHON else '.c'
 extensions = [
-    Extension("nphusl._nphusl_cython", sources=["nphusl/_nphusl_cython.pyx"],
+    Extension("nphusl._nphusl_cython", sources=["nphusl/_nphusl_cython"+ext],
               extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
               extra_link_args=["-fopenmp"])
 ]
+
+if USE_CYTHON:
+    from Cython.Build import cythonize
+    extensions = cythonize(extensions)
 
 
 setup(name='nphusl',
       version=__version__,
       packages=["nphusl"],
-      install_requires=["Cython", "numpy"],
-      ext_modules=cythonize(extensions),
+      install_requires=["numpy"],
+      ext_modules=extensions,
       include_dirs=[numpy.get_include()],
       licence="MIT",
       description=description,
@@ -84,6 +94,7 @@ setup(name='nphusl',
       keywords="husl hsl color conversion rgb image processing",
       url=url,
       download_url=download,
+      zip_safe=False,
 )
 
 
