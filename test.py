@@ -4,7 +4,7 @@ import sys
 import imread
 import numpy as np
 
-from nphusl import nphusl
+import nphusl
 from nphusl.nphusl import _channel
 import husl  # the original husl-colors.org library
 
@@ -375,8 +375,9 @@ def test_xyz_to_rgb():
 def test_from_linear():
     a = 0.003 + 0.330
     b = 0.003 - 0.0020
+    from nphusl.nphusl import _from_linear
     for val in (a, b):
-        assert husl.from_linear(val) == nphusl._from_linear(np.array([val]))[0]
+        assert husl.from_linear(val) == _from_linear(np.array([val]))[0]
 
 
 def test_husl_to_lch():
@@ -409,8 +410,9 @@ def test_lch_to_luv():
 def test_f_inv():
     val_a = 8 + 1.5
     val_b = 8 - 3.5
-    assert husl.f_inv(val_a) == nphusl._f_inv(np.array([val_a]))[0]
-    assert husl.f_inv(val_b) == nphusl._f_inv(np.array([val_b]))[0]
+    from nphusl.nphusl import _f_inv
+    assert husl.f_inv(val_a) == _f_inv(np.array([val_a]))[0]
+    assert husl.f_inv(val_b) == _f_inv(np.array([val_b]))[0]
 
 
 ### Tests for convenience functions, utilities
