@@ -14,8 +14,7 @@ A color space conversion library that works with [numpy](http://numpy.org). See 
 1. `virtualenv env -p python3`
 2. `source env/bin/activate`
 3. `pip install numpy`
-4. (optional) `pip install Cython`  (or NumExpr, but Cython is preferred)
-5. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
+4. `pip install nphusl`
 
 # Usage Guide
 #### Setup
