@@ -1,8 +1,7 @@
 # HUSL color space conversion
 A color space conversion library that works with `numpy` arrays. See [www.husl-colors.org](www.husl-colors.org) for more information about the HUSL color space.
 
-![an image](images/gelface.jpg) ![an image]() ![an image](images/light.jpg) ![an image](images/gelface.gif) ![animage](http://imgur.com/a/dgUpM) ![an image](images/watermelon_final.jpg)
-
+![an image](images/gelface.jpg) ![an image](images/light.jpg) ![an image](images/watermelon_final.jpg) ![](images/gelface.gif) ![an image](https://i.imgur.com/Arv5BDt.gif) ![](http://imgur.com/B3XiGOm.gif) ![](http://imgur.com/0BAP3RX.gif)
 
 ## Features
 
@@ -226,5 +225,5 @@ animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
 animation.write_gif("video.gif", fps=fps)
 ```
 
-![microwave](http://imgur.com/a/dgUpM)
+![microwave](http://imgur.com/0BAP3RX.gif)
 
