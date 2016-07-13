@@ -434,12 +434,21 @@ def chunk_img(img: ndarray, chunksize: int = None):
         yield img, ((0, rows), (0, cols))
 
 
+def _chunk_no_idx(img: ndarray, chunksize: int = None):
+    yield from (c[0] for c in chunk_img(img, chunksize))
+
+
+def chunk_many(*arrays, chunksize: int = None):
+    chunk_gens = [_chunk_no_idx(a, chunksize) for a in arrays]
+    return zip(*chunk_gens)
+
+
 def chunk(end: int, chunksize: int):
     """Generate tuples of (start_idx, end_idx) that breaks a sequence into
     slices of `chunksize` length"""
     _start = 0
     if end > chunksize:
-        for _end in range(chunksize, end, chunksize):
+        for _end in range(chunksize, end, chunksize or 1):
             yield _start, _end
             _start = _end
     yield _start, end
