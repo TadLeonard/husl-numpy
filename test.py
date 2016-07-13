@@ -4,7 +4,8 @@ import sys
 import imread
 import numpy as np
 
-import nphusl
+from nphusl import nphusl
+from nphusl.nphusl import _channel
 import husl  # the original husl-colors.org library
 
 
@@ -47,7 +48,7 @@ def test_to_husl_3d():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff(husl_new[row, col], husl_old)
+            assert _diff_hue(husl_new[row, col], husl_old)
 
 
 @try_all_optimizations
@@ -60,7 +61,7 @@ def test_to_husl_gray():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff(husl_new[row, col], husl_old)
+            assert _diff_hue(husl_new[row, col], husl_old)
 
 
 @try_all_optimizations
@@ -74,7 +75,7 @@ def test_to_husl_gray_3D():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff(husl_new[row, col], husl_old)
+            assert _diff_hue(husl_new[row, col], husl_old)
 
 
 @try_all_optimizations
@@ -84,8 +85,9 @@ def test_to_hue_vs_old():
     hue_new = nphusl.to_hue(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            husl_old = husl.rgb_to_husl(*img[row, col])[0]
-            assert _diff(hue_new[row, col], husl_old)
+            husl_old = husl.rgb_to_husl(*img[row, col])
+            diff = 5.0 if husl_old[1] < 1 else 0.0001
+            assert _diff(hue_new[row, col], husl_old[0], diff=diff)
 
 
 @try_all_optimizations
@@ -97,8 +99,9 @@ def test_to_hue_gray():
     hue_new = nphusl.to_hue(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            hue_old = husl.rgb_to_husl(*img[row, col])[0]
-            assert _diff(hue_new[row, col], hue_old)
+            hue_old = husl.rgb_to_husl(*img[row, col])
+            diff = 5.0 if hue_old[1] < 1 else 0.0001
+            assert _diff(hue_new[row, col], hue_old[0], diff=diff)
 
 
 @try_all_optimizations
@@ -107,8 +110,8 @@ def test_rgb_to_husl():
     husl_new = nphusl.rgb_to_husl(rgb_arr)
     for i in range(rgb_arr.shape[0]):
         for j in range(rgb_arr.shape[1]):
-            assert _diff(husl_new[i, j],
-                         husl.rgb_to_husl(*rgb_arr[i, j]))
+            assert _diff_hue(husl_new[i, j],
+                             husl.rgb_to_husl(*rgb_arr[i, j]))
 
 
 @try_all_optimizations
@@ -118,7 +121,7 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = husl.rgb_to_husl(*rgb_arr[row][col])
-            assert _diff(husl_new[row, col], husl_old)
+            assert _diff_hue(husl_new[row, col], husl_old)
 
 
 @try_all_optimizations
@@ -135,7 +138,8 @@ def test_lch_to_husl():
         hsl_old = husl.lch_to_husl(old_lch)
         hsl_old = husl.rgb_to_husl(*rgb_arr[i, 0])
         assert _diff(lch_arr[i, 0], old_lch)
-        assert _diff(hsl_from_lch_arr[i, 0], hsl_from_rgb_arr[i, 0])
+        assert _diff_hue(hsl_from_lch_arr[i, 0], hsl_from_rgb_arr[i, 0])
+        assert _diff_hue(hsl_from_lch_arr[i, 0], hsl_from_rgb_arr[i, 0])
 
 
 @try_all_optimizations
@@ -415,20 +419,20 @@ def test_f_inv():
 def test_channel():
     a = np.zeros((40, 40, 3))
     a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40
-    assert np.all(nphusl._channel(a, 0) == 20)
-    assert np.all(nphusl._channel(a, 1) == 30)
-    assert np.all(nphusl._channel(a, 2) == 40)
+    assert np.all(_channel(a, 0) == 20)
+    assert np.all(_channel(a, 1) == 30)
+    assert np.all(_channel(a, 2) == 40)
 
 
 def test_channel_assignment():
     a = np.zeros((40, 40, 3))
     a[:] = (20, 30, 40)  # r = 20, b = 30, g = 40
-    nphusl._channel(a, 0)[:] = 1
-    nphusl._channel(a, 1)[:] = 2
-    nphusl._channel(a, 2)[:] = 3
-    assert np.all(nphusl._channel(a, 0) == 1)
-    assert np.all(nphusl._channel(a, 1) == 2)
-    assert np.all(nphusl._channel(a, 2) == 3)
+    _channel(a, 0)[:] = 1
+    _channel(a, 1)[:] = 2
+    _channel(a, 2)[:] = 3
+    assert np.all(_channel(a, 0) == 1)
+    assert np.all(_channel(a, 1) == 2)
+    assert np.all(_channel(a, 2) == 3)
 
 
 def test_chunk():
@@ -511,16 +515,29 @@ def test_to_husl_rgba():
 def _diff(a, b, diff=0.001):
     return np.all(np.abs(a - b) < diff)
 
+def _diff_hue(a, b, diff=1.0):
+    if len(a) != 3:
+        saturation = a[..., 1]
+        lowsat = saturation < 1
+        difsat = _diff(a[lowsat], b, diff=diff)
+        dif = _diff(a[~lowsat], b, diff=diff)
+        return difsat and dif
+    else:
+        if a[1] > 1:
+            return _diff(a, b, diff=diff)
+        else:
+            return _diff(a, b, diff=5.6)
+
 
 def test_cython_max_chroma():
-    import _nphusl_cython
+    from nphusl import _nphusl_cython
     husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
     cyth_chroma = _nphusl_cython._test_max_chroma(0.25, 40.0)
     assert abs(husl_chroma - cyth_chroma) < 0.001
 
 
 def test_cython_husl_to_rgb():
-    import _nphusl_cython as cy
+    from nphusl import _nphusl_cython as cy
     hsl = np.ndarray(dtype=float, shape=(9, 9, 3))
     hsl[:] = 200.0, 50.1, 30.4
     hsl[:] /= 255.0
@@ -530,7 +547,7 @@ def test_cython_husl_to_rgb():
 
 
 def test_cython_rgb_to_husl():
-    import _nphusl_cython as cy
+    from nphusl import _nphusl_cython as cy
     rgb = np.ndarray(dtype=float, shape=(2, 2, 3))
     rgb[:] = 200.0, 90.2, 240.4
     rgb[:] /= 255.0
