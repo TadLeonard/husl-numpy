@@ -156,13 +156,18 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
     return husl
 
 
+def rgb_to_hue(rgb):
+    if len(rgb.shape) == 3:
+        return rgb_to_hue_3d(rgb)
+    else:
+        return rgb_to_hue_2d(rgb)
 
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue(
+cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
         np.ndarray[ndim=3, dtype=double] rgb):
     cdef int i, j
     cdef int rows = rgb.shape[0]
@@ -205,6 +210,55 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue(
             if h < 0:
                 h = h + 360
             hue[i, j] = h
+
+    return hue
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+@cython.wraparound(False)
+cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
+        np.ndarray[ndim=2, dtype=double] rgb):
+    cdef int i
+    cdef int rows = rgb.shape[0]
+    cdef np.ndarray[ndim=1, dtype=double] hue = (
+        np.zeros(dtype=float, shape=(rows,)))
+
+    cdef double r, g, b
+    cdef double x, y, z
+    cdef double l, u, v
+    cdef double var_u, var_v
+    cdef double c, h, hrad
+
+    for i in prange(rows, schedule="guided", nogil=True):
+        # from linear RGB
+        r = to_linear(rgb[i, 0])
+        g = to_linear(rgb[i, 1])
+        b = to_linear(rgb[i, 2])
+
+        # to XYZ
+        x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
+        y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
+        z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
+
+        # to LUV
+        if x == y == z == 0:
+            l = u = v = 0
+        else:
+            var_u = 4 * x / (x + 15 * y + 3 * z)
+            var_v = 9 * y / (x + 15 * y + 3 * z)
+            l = to_light(y)
+            u = 13 * l * (var_u - REF_U)
+            v = 13 * l * (var_v - REF_V)
+
+        # to LCH
+        c = sqrt(u ** 2 + v ** 2)
+        hrad = atan2(v, u)
+        h = hrad * (180.0 / M_PI)
+        if h < 0:
+            h = h + 360
+        hue[i] = h
 
     return hue
 
