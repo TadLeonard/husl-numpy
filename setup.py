@@ -5,15 +5,15 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension("_nphusl_cython", sources=["_nphusl_cython.pyx"],
-              extra_compile_args=["-fopenmp"], extra_link_args=["-fopenmp"])
+    Extension("nphusl._nphusl_cython", sources=["nphusl/_nphusl_cython.pyx"],
+              extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
+              extra_link_args=["-fopenmp"])
 ]
 
 
 setup(name='nphusl',
       version=__version__,
-      py_modules=['nphusl', "_nphusl_expr"],
-      #ext_modules=cythonize("_nphusl_cython.pyx"),
+      packages=["nphusl"],
       ext_modules=cythonize(extensions),
       include_dirs=[numpy.get_include()],
 )
