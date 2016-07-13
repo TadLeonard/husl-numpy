@@ -59,7 +59,7 @@ def hue_watermelon(img):
     hue_out = hue.copy()
     pink = 360  # very end of the H spectrum
     green = 130
-    chunksize = 5
+    chunksize = 45
     for low, high in nphusl.chunk(360, chunksize):  # chunks of the hue range
         select = np.logical_and(hue > low, hue < high)
         is_odd = low % (chunksize * 2)
@@ -77,8 +77,8 @@ def melonize(img, n_frames):
     green = 130
 
     def gen_chunksizes():
-        yield from range(1, 100):
-        yield from range(100, 1, -1):
+        yield from range(1, 100)
+        yield from range(100, 1, -1)
 
     for chunksize in gen_chunksizes():
         hsl_out = hsl.copy()
