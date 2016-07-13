@@ -12,8 +12,15 @@ __version__ = "1.4.0"
 from . import nphusl as _nphusl
 from .nphusl import *
 from . import constants
-from . import _nphusl_expr
-from . import _nphusl_cython
+
+try:
+    from . import _nphusl_expr
+except ImportError:
+    pass
+try:
+    from . import _nphusl_cython
+except ImportError:
+    pass
 
 
 def enable_standard_fns():
