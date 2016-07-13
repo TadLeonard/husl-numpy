@@ -28,9 +28,9 @@ img = imread.imread("path/to/img.jpg")
 
 #### The basics
 
-* `to_rgb(hsl)`: Convert HUSL array to RGB integer array
-* `to_husl(rgb)`: Convert RGB integer array or grayscale float array to HUSL array
-* `to_hue(rgb)`: Convert RGB integer array or grayscale float array to array of hue values
+* `to_rgb(hsl)` Convert HUSL array to RGB integer array
+* `to_husl(rgb)` Convert RGB integer array or grayscale float array to HUSL array
+* `to_hue(rgb)` Convert RGB integer array or grayscale float array to array of hue values
 
 ```python
 # convert to HUSL (HSL)

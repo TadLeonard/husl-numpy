@@ -14,6 +14,7 @@ extensions = [
 setup(name='nphusl',
       version=__version__,
       packages=["nphusl"],
+      install_requires=["Cython", "numpy"],
       ext_modules=cythonize(extensions),
       include_dirs=[numpy.get_include()],
 )
