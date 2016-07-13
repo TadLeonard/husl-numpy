@@ -150,7 +150,7 @@ striations on the subject's face. Here's the output with `chunksize = 5`:
 ## Example 4: Microwave
 
 Now we'll microwave our subject by by using all three HUSL channels at once
-and [moviepy](https://github.com/Zulko/moviepy) to make a GIF.
+and [MoviePy](https://github.com/Zulko/moviepy) to make a GIF.
 To produce a microwave "melt", we need a function that will form hue waves,
 mask regions of high saturation, and make "drips" by sliding lightness
 values downward.
@@ -197,6 +197,29 @@ animation.write_gif("microwave.gif", fps=fps)
 
 ## Melonize revisited
 By incrementing `chunksize` for successive frames, we can produce a nice "melonize" animation:
+
+```python
+def melonize(img, n_frames):
+    hsl = nphusl.to_husl(img)
+    hue, sat, lit = (hsl[..., n] for n in range(3))
+    #sat[:] = 99
+    pink = 360  # very end of the H spectrum
+    green = 130
+
+    def gen_chunksizes():
+        yield from range(1, 100)
+        yield from range(100, 1, -1)
+
+    for chunksize in gen_chunksizes():
+        hsl_out = hsl.copy()
+        hue_out, sat_out, lit_out = (hsl_out[..., i] for i in range(3))
+        for low, high in chunk(100, chunksize):  # chunks of the hue range
+            select = np.logical_and(lit > low, lit < high)
+            is_odd = low % (chunksize * 2)
+            color = pink if is_odd else green
+            hue_out[select] = color
+        yield to_rgb(hsl_out)
+```
 
 ![melonize](https://i.imgur.com/Arv5BDt.gif)
 
