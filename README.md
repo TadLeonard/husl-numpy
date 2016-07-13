@@ -1,5 +1,5 @@
 # HUSL color space conversion
-A color space conversion library that works with [numpy](http://numpy.org). See [http://husl-colors.org](www.husl-colors.org) to learn about the HUSL color space.
+A color space conversion library that works with [numpy](http://numpy.org). See [http://husl-colors.org](http://husl-colors.org) to learn about the HUSL color space.
 
 ![an image](images/gelface.jpg) ![an image](images/light.jpg) ![an image](images/watermelon_final.jpg) ![](images/gelface.gif) ![an image](https://i.imgur.com/Arv5BDt.gif) ![](http://imgur.com/B3XiGOm.gif) ![](http://imgur.com/0BAP3RX.gif)
 
@@ -11,12 +11,11 @@ A color space conversion library that works with [numpy](http://numpy.org). See 
 
 ## Installation
 
-a. virtualenv env -p python3
-b. source env/bin/activate
-
-1. `pip install numpy`
-2. `pip install Cython`  (or `NumExpr`, but `Cython` is preferred)
-3. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
+1. `virtualenv env -p python3`
+2. `source env/bin/activate`
+3. `pip install numpy`
+4. (optional) `pip install Cython`  (or NumExpr, but Cython is preferred)
+5. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
 
 # Usage Guide
 #### Setup
