@@ -1,4 +1,2 @@
 numpy
-numexpr
-imread
-husl
+Cython
