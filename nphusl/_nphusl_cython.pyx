@@ -7,6 +7,11 @@ from cython.parallel import prange, parallel
 from libc.math cimport sin, cos, M_PI, atan2, sqrt
 
 
+cdef extern from "_simd_ops.h":
+    double to_light_c(double) nogil
+    double to_linear_c(double) nogil
+
+
 cdef double[3][3] M = constants.M
 #    [3.240969941904521, -1.537383177570093, -0.498610760293],
 #    [-0.96924363628087, 1.87596750150772, 0.041555057407175],
@@ -39,12 +44,14 @@ def rgb_to_husl(rgb):
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl_3d(
-        np.ndarray[ndim=3, dtype=double] rgb):
-    cdef int i, j
+#cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl_3d(
+#        np.ndarray[ndim=3, dtype=double] rgb):
+cpdef double[:, :, ::1] rgb_to_husl_3d(
+        double[:, :, ::1] rgb not None):
+    cdef Py_ssize_t i, j
     cdef int rows = rgb.shape[0]
     cdef int cols = rgb.shape[1]
-    cdef np.ndarray[ndim=3, dtype=double] husl = (
+    cdef double[:, :, ::1] husl = (
         np.zeros(dtype=float, shape=(rows, cols, 3)))
 
     cdef double r, g, b
@@ -56,9 +63,9 @@ cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl_3d(
     for i in prange(rows, schedule="guided", nogil=True):
         for j in range(cols):
             # from linear RGB
-            r = to_linear(rgb[i, j, 0])
-            g = to_linear(rgb[i, j, 1])
-            b = to_linear(rgb[i, j, 2])
+            r = to_linear_c(rgb[i, j, 0])
+            g = to_linear_c(rgb[i, j, 1])
+            b = to_linear_c(rgb[i, j, 2])
 
             # to XYZ
             x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
