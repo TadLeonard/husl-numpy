@@ -16,11 +16,13 @@ nphusl.enable_standard_fns()  # test, by default, without optimizations
 
 def try_all_optimizations(fn):
     def with_expr(*args, **kwargs):
+        assert hasattr(nphusl, "_nphusl_expr")
         nphusl.enable_numexpr_fns()
         fn(*args, **kwargs)
         nphusl.enable_standard_fns()
 
     def with_cyth(*args, **kwargs):
+        assert hasattr(nphusl, "_nphusl_cython")
         nphusl.enable_cython_fns()
         fn(*args, **kwargs)
         nphusl.enable_standard_fns()
