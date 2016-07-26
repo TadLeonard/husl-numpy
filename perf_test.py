@@ -1,6 +1,6 @@
 import numpy as np
 import nphusl
-cy = nphusl._nphusl_cython
+cy = nphusl._cython_opt
 import husl
 import timeit
 

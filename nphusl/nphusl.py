@@ -8,13 +8,17 @@ from . import constants
 ### Optimization hooks
 
 try:
-    from . import _nphusl_expr as expr
+    from . import _numexpr_opt as expr
 except ImportError:
     expr = None
 try:
-    from . import _nphusl_cython as cyth
+    from . import _cython_opt as cyth
 except ImportError:
     cyth = None
+try:
+    from . import _simd_opt as simd
+except ImportError:
+    simd = None
 
 
 _NUMEXPR_ENABLED = True

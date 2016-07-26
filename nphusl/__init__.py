@@ -14,11 +14,15 @@ from .nphusl import *
 from . import constants
 
 try:
-    from . import _nphusl_expr
+    from . import _numexpr_opt
 except ImportError:
     pass
 try:
-    from . import _nphusl_cython
+    from . import _cython_opt
+except ImportError:
+    pass
+try:
+    from . import _simd_opt
 except ImportError:
     pass
 

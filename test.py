@@ -16,13 +16,13 @@ nphusl.enable_standard_fns()  # test, by default, without optimizations
 
 def try_all_optimizations(fn):
     def with_expr(*args, **kwargs):
-        assert hasattr(nphusl, "_nphusl_expr")
+        assert hasattr(nphusl, "_numexpr_opt")
         nphusl.enable_numexpr_fns()
         fn(*args, **kwargs)
         nphusl.enable_standard_fns()
 
     def with_cyth(*args, **kwargs):
-        assert hasattr(nphusl, "_nphusl_cython")
+        assert hasattr(nphusl, "_cython_opt")
         nphusl.enable_cython_fns()
         fn(*args, **kwargs)
         nphusl.enable_standard_fns()
@@ -534,14 +534,14 @@ def _diff_hue(a, b, diff=1.0):
 
 
 def test_cython_max_chroma():
-    from nphusl import _nphusl_cython
+    from nphusl import _cython_opt
     husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
-    cyth_chroma = _nphusl_cython._test_max_chroma(0.25, 40.0)
+    cyth_chroma = _cython_opt._test_max_chroma(0.25, 40.0)
     assert abs(husl_chroma - cyth_chroma) < 0.001
 
 
 def test_cython_husl_to_rgb():
-    from nphusl import _nphusl_cython as cy
+    from nphusl import _cython_opt as cy
     hsl = np.ndarray(dtype=float, shape=(9, 9, 3))
     hsl[:] = 200.0, 50.1, 30.4
     hsl[:] /= 255.0
@@ -551,7 +551,7 @@ def test_cython_husl_to_rgb():
 
 
 def test_cython_rgb_to_husl():
-    from nphusl import _nphusl_cython as cy
+    from nphusl import _cython_opt as cy
     rgb = np.ndarray(dtype=float, shape=(2, 2, 3))
     rgb[:] = 200.0, 90.2, 240.4
     rgb[:] /= 255.0
