@@ -19,17 +19,22 @@ except ImportError:
 
 _NUMEXPR_ENABLED = True
 _CYTHON_ENABLED = True
+_SIMD_ENABLED = True
 STANDARD = {}  # normal cpython/numpy fns
 NUMEXPR = {}  # numexpr fns
 CYTHON = {}  # cython extension fns
+SIMD = {}  # cython-wrapped C SIMD parallelization
 
 
 def optimized(fn):
     STANDARD[fn.__name__] = fn
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
     cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
+    simd_fn = getattr(simd, fn.__name__, None) if _SIMD_ENABLED else None
     opt_fn = cython_fn or expr_fn  # prefer cython
     result_fn = opt_fn or fn
+    if simd_fn:
+        SIMD[fn.__name__] = simd_fn
     if cython_fn:
         CYTHON[fn.__name__] = cython_fn
     if expr_fn:
