@@ -5,6 +5,7 @@ all:
 
 clean:
 	rm -rf build/
-	rm nphusl/*.so
-	rm nphusl/_nphusl_cython.c
+	rm -f nphusl/*.so
+	rm -f nphusl/_cython_opt.c
+	rm -f nphusl/_simd_wrap.c
 
