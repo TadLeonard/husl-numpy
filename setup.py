@@ -69,8 +69,13 @@ classifiers = [
 
 ext = '.pyx' if USE_CYTHON else '.c'
 extensions = [
-    Extension("nphusl._nphusl_cython",
-              sources=["nphusl/_nphusl_cython"+ext, "nphusl/_simd_ops.c"],
+    Extension("nphusl._cython_opt",
+              sources=["nphusl/_cython_opt"+ext],
+              extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
+              extra_link_args=["-fopenmp"]),
+    Extension("nphusl._simd_opt",
+              sources=["nphusl/_simd_wrap"+ext,
+                       "nphusl/_simd_opt.c"],
               include_dirs=["nphusl/"],
               extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
               extra_link_args=["-fopenmp"])
