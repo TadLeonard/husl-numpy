@@ -44,16 +44,12 @@ def rgb_to_husl(rgb):
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-#cpdef np.ndarray[ndim=3, dtype=double] rgb_to_husl_3d(
-#        np.ndarray[ndim=3, dtype=double] rgb):
-cpdef double[:, :, ::1] rgb_to_husl_3d(
-        double[:, :, ::1] rgb not None):
-    cdef Py_ssize_t i, j
-    cdef int rows = rgb.shape[0]
-    cdef int cols = rgb.shape[1]
-    cdef double[:, :, ::1] husl = (
-        np.zeros(dtype=float, shape=(rows, cols, 3)))
+cpdef double[:, :, ::1] rgb_to_husl_3d(double[:, :, ::1] rgb not None):
+    cdef Py_ssize_t rows = rgb.shape[0]
+    cdef Py_ssize_t cols = rgb.shape[1]
+    cdef double[:, :, ::1] husl
 
+    cdef int i, j
     cdef double r, g, b
     cdef double x, y, z
     cdef double l, u, v
