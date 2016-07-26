@@ -23,21 +23,24 @@ except ImportError:
     pass
 
 
-def enable_standard_fns():
-    for name, fn in STANDARD.items():
+def _enable_fns(fn_dictionary):
+    for name, fn in fn_dictionary.items():
         globals()[name] = fn
         setattr(nphusl, name, fn)
+
+
+def enable_standard_fns():
+    _enable_fns(STANDARD)
 
 
 def enable_cython_fns():
-    for name, fn in CYTHON.items():
-        globals()[name] = fn
-        setattr(nphusl, name, fn)
+    _enable_fns(CYTHON)
 
 
 def enable_numexpr_fns():
-    for name, fn in NUMEXPR.items():
-        globals()[name] = fn
-        setattr(nphusl, name, fn)
+    _enable_fns(NUMEXPR)
 
+
+def enable_simd_fns():
+    _enable_fns(SIMD)
 
