@@ -74,8 +74,8 @@ extensions = [
               extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
               extra_link_args=["-fopenmp"]),
     Extension("nphusl._simd_opt",
-              sources=["nphusl/_simd_wrap"+ext,
-                       "nphusl/_simd_opt.c"],
+              sources=["nphusl/_simd_opt"+ext,
+                       "nphusl/_simd.c"],
               include_dirs=["nphusl/"],
               extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
               extra_link_args=["-fopenmp"])
