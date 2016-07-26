@@ -118,7 +118,7 @@ def test_rgb_to_husl():
 
 @try_all_optimizations
 def test_rgb_to_husl_3d():
-    rgb_arr = _img()
+    rgb_arr = np.ascontiguousarray(_img()[:5, :5])
     husl_new = nphusl.rgb_to_husl(rgb_arr)
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
@@ -354,7 +354,7 @@ def test_to_rgb_2d():
 
 @try_all_optimizations
 def test_husl_to_rgb():
-    img = _img()[25:, :5]
+    img = np.ascontiguousarray(_img()[25:, :5])
     husl = nphusl.rgb_to_husl(img)
     rgb = nphusl.husl_to_rgb(husl)
     assert _diff(img, rgb, diff=0.01)
@@ -570,7 +570,7 @@ def _img():
         i = i[::4, ::4]
         i[0] = 0.0  # ensure we get all black
         i[1] = 1.0  # ensure we get all white
-        IMG_CACHED[0] = i
+        IMG_CACHED[0] = np.ascontiguousarray(i)
     return IMG_CACHED[0]
 
 
