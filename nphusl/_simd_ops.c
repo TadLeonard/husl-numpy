@@ -89,9 +89,7 @@ void rgb_to_husl_3d_c(double *rgb, double *hsl, int rows, int cols) {
                 s = 0;
                 l = 100;
             } else if (l < 0.01) {
-                //s = l = 0;
-                s = 0;
-                l = 0;
+                s = l = 0;
             } else {
                 s = (c / max_chroma(l, h)) * 100.0;
             }
