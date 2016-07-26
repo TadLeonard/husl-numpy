@@ -3,6 +3,10 @@ A color space conversion library that works with [numpy](http://numpy.org). See 
 
 ![an image](images/gelface.jpg) ![an image](images/light.jpg) ![an image](images/watermelon_final.jpg) ![](images/gelface.gif) ![an image](https://i.imgur.com/Arv5BDt.gif) ![](http://imgur.com/B3XiGOm.gif) ![](http://imgur.com/0BAP3RX.gif)
 
+[![License](http://img.shields.io/:license-mit-blue.svg?style=flat-blue)](http://badges.mit-license.org)
+[![PyPI version](https://badge.fury.io/py/nphusl.svg)](https://badge.fury.io/py/nphusl)
+
+
 ## Features
 
 1. Fast conversion to RGB from HUSL and vice versa. Convert a 1080p image to HUSL in less than a second.
@@ -14,8 +18,7 @@ A color space conversion library that works with [numpy](http://numpy.org). See 
 1. `virtualenv env -p python3`
 2. `source env/bin/activate`
 3. `pip install numpy`
-4. (optional) `pip install Cython`  (or NumExpr, but Cython is preferred)
-5. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
+4. `pip install nphusl`
 
 # Usage Guide
 #### Setup
