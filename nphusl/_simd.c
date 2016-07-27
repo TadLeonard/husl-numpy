@@ -1,11 +1,11 @@
 
 #include <math.h>
-#include <stdio.h>
+#include <omp.h>
 
 
 static double max_chroma(double, double);
-double to_light(double);
-double to_linear(double);
+static double to_light(double);
+static double to_linear(double);
 
 const double M[3][3] = {
     {3.240969941904521, -1.537383177570093, -0.498610760293},
@@ -29,19 +29,26 @@ const double EPSILON = 0.0088564516;
 
 
 void rgb_to_husl_nd(double *rgb, double *hsl, int pixels) {
-    int idx, i;
+    int i;
     double r, g, b;
     double x, y, z;
     double l, u, v;
     double var_u, var_v;
     double c, h, hrad, s;
-    idx = 0;
 
-    for (i = 0; i < pixels; i++) {
+
+//#pragma omp parallel \
+//    num_threads(2) private(i) shared(rgb, hsl, pixels)
+
+
+#pragma omp for private(r, g, b, x, y, z, l, u, v, var_u, var_v, c, h, hrad, s)
+//#pragma omp for simd private(r, g, b, x, y, z, l, u, v, var_u, var_v, c, h,\
+//hrad, s)
+    for (i = 0; i < pixels*3; i+=3) {
         // from linear RG
-        r = to_linear(rgb[idx]);
-        g = to_linear(rgb[idx + 1]);
-        b = to_linear(rgb[idx + 2]);
+        r = to_linear(rgb[i]);
+        g = to_linear(rgb[i + 1]);
+        b = to_linear(rgb[i + 2]);
 
         // to XYZ
         x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b;
@@ -76,10 +83,9 @@ void rgb_to_husl_nd(double *rgb, double *hsl, int pixels) {
         } else {
             s = (c / max_chroma(l, h)) * 100.0;
         }
-        hsl[idx] = h;
-        hsl[idx + 1] = s;
-        hsl[idx + 2] = l;
-        idx += 3;
+        hsl[i] = h;
+        hsl[i + 1] = s;
+        hsl[i + 2] = l;
     }
 }
 
@@ -87,7 +93,7 @@ void rgb_to_husl_nd(double *rgb, double *hsl, int pixels) {
 /*
 Find max chroma given an L, H pair
 */
-static double max_chroma(double lightness, double hue) {
+static inline double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
     double sub2;
     if (sub1 > EPSILON) {
@@ -100,13 +106,13 @@ static double max_chroma(double lightness, double hue) {
     double top2_b;
     double bottom;
     double bottom_b;
-    int i;
     double min_length = 100000.0;
     double length1, length2;
     double m1, m2, b1, b2;
     double theta = hue / 360.0 * M_PI * 2.0;
     double sintheta = sin(theta);
     double costheta = cos(theta);
+    int i;
 
     for (i = 0; i < 3; i++) {
         top1 = (284517.0 * M[i][0] - 94839.0 * M[i][2]) * sub2;
@@ -139,7 +145,7 @@ static double max_chroma(double lightness, double hue) {
 }
 
 
-inline double to_light(double y_value) {
+static inline double to_light(double y_value) {
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
     } else {
@@ -148,7 +154,7 @@ inline double to_light(double y_value) {
 }
 
 
-inline double to_linear(double value) {
+static inline double to_linear(double value) {
     if (value > 0.04045) {
         return pow((value + 0.055) / (1.0 + 0.055), 2.4);
     } else {
