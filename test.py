@@ -53,7 +53,7 @@ def try_optimizations(*opts):
     return wrapped
 
 
-@try_optimizations(Opt.cython, Opt.numexpr)
+@try_optimizations()
 def test_to_husl_2d():
     img = _img()[0]
     rgb_arr = img  * 255
