@@ -8,13 +8,14 @@ import timeit
 def _test_all(fn, arg, env):
     env = {**globals(), **env}
     go_cy = cy.husl_to_rgb
-    print("\n{}({}) ====".format(fn, arg))
+    print("\n\n{}({}) ====".format(fn, arg))
     for method in "simd cython numexpr standard".split():
         enable = getattr(nphusl, "enable_{}_fns".format(method))
         nphusl.enable_standard_fns()
         enable()
         t = timeit.timeit("{}({})".format(fn, arg), number=1, globals=env)
-        print("  {}: {:0.4f}".format(method, t))
+        spaces = len("standard") - len(method)
+        print("  {}: {}{:0.4f}".format(method, " "*spaces, t))
 
 
 def test_perf_husl_to_rgb():
