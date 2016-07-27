@@ -3,10 +3,10 @@ all:
 	python setup.py build_ext --inplace --cythonize
 
 cython:
-	python setup.py build_ext --inplace --cythonize --no-simd-opt
+	python setup.py build_ext --inplace --cythonize --no-simd-ext
 
 simd:
-	python setup.py build_ext --inplace --cythonize --no-cython-opt
+	python setup.py build_ext --inplace --cythonize --no-cython-ext
 
 clean_all:
 	rm -rf build/
