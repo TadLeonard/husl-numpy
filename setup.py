@@ -2,11 +2,17 @@ import sys
 from setuptools import setup, Extension
 from nphusl import __version__
 import numpy
-if "--use-cython" in sys.argv:
-    sys.argv.remove("--use-cython")
-    USE_CYTHON = True
-else:
-    USE_CYTHON = False
+
+CYTHONIZE = "--cythonize" in sys.argv
+NO_CYTHON_EXT = "--no-cython-ext" in sys.argv
+NO_SIMD_EXT = "--no-simd-ext" in sys.argv
+
+if CYTHONIZE:
+    sys.argv.remove("--cythonize")
+if NO_SIMD_EXT:
+    sys.argv.remove("--no-simd-ext")
+if NO_CYTHON_EXT:
+    sys.argv.remove("--no-cython-ext")
 
 
 url = "https://github.com/TadLeonard/husl-numpy"
@@ -67,21 +73,25 @@ classifiers = [
   'Topic :: Multimedia :: Graphics',
 ]
 
-ext = '.pyx' if USE_CYTHON else '.c'
-extensions = [
-    Extension("nphusl._cython_opt",
-              sources=["nphusl/_cython_opt"+ext],
-              extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
-              extra_link_args=["-fopenmp"]),
-    Extension("nphusl._simd_opt",
-              sources=["nphusl/_simd_opt"+ext,
-                       "nphusl/_simd.c"],
-              include_dirs=["nphusl/"],
-              extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
-              extra_link_args=["-fopenmp"])
-]
+ext = '.pyx' if CYTHONIZE else '.c'
+extensions = []
 
-if USE_CYTHON:
+cython_ext = Extension("nphusl._cython_opt",
+                       sources=["nphusl/_cython_opt"+ext],
+                       extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
+                       extra_link_args=["-fopenmp"])
+simd_ext = Extension("nphusl._simd_opt",
+                     sources=["nphusl/_simd_opt"+ext,
+                              "nphusl/_simd.c"],
+                     include_dirs=["nphusl/"],
+                     extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
+                     extra_link_args=["-fopenmp"])
+if not NO_CYTHON_EXT:
+    extensions.append(cython_ext)
+if not NO_SIMD_EXT:
+    extensions.append(simd_ext)
+
+if CYTHONIZE:
     from Cython.Build import cythonize
     extensions = cythonize(extensions)
 
