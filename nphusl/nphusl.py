@@ -14,10 +14,12 @@ except ImportError:
 try:
     from . import _cython_opt as cyth
 except ImportError:
+    warnings.warn("No Cython extension module: {}".format(e))
     cyth = None
 try:
     from . import _simd_opt as simd
-except ImportError:
+except ImportError as e:
+    warnings.warn("No SIMD extension module: {}".format(e))
     simd = None
 
 
