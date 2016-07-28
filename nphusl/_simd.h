@@ -1,3 +1,3 @@
 
-void rgb_to_husl_nd(double*, double*, int);
+double *rgb_to_husl_nd(double*, int, int);
 

@@ -1,4 +1,6 @@
 #include <_linear_lookup.h>
+#include <stdio.h>
+#include <math.h>
 
 const double linear_table[256] = {
   0.000000,  0.000304,  0.000607,  0.000911,  0.001214,  0.001518,  0.001821,  0.002125,
@@ -36,6 +38,9 @@ const double linear_table[256] = {
 };
 
 
+double _linear_table[256];
+
+
 inline double compute_linear(double value) {
     if (value > 0.04045) {
         return pow((value + 0.055) / (1.0 + 0.055), 2.4);
@@ -45,19 +50,10 @@ inline double compute_linear(double value) {
 }
 
 void fill_linear_table(void) {
-    if (is_filled) {
-        return;
-    }
     int j;
     for (j = 0; j < 256; j++) {
         _linear_table[j] = compute_linear((float) j / 255.0);
     }
-    is_filled = 1;
-}
-
-
-inline double to_linear(double value) {
-    return linear_table[(int) value * 255];
 }
 
 

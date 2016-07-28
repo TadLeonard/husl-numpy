@@ -1,11 +1,17 @@
 
 #include <math.h>
 #include <omp.h>
+#include <stdlib.h>
+#include <_linear_lookup.h>
+
+
+typedef unsigned char uint8;
 
 
 static double max_chroma(double, double);
 static double to_light(double);
-static double to_linear(double);
+double* rgb_to_husl_nd(double*, int, int);
+
 
 const double M[3][3] = {
     {3.240969941904521, -1.537383177570093, -0.498610760293},
@@ -27,28 +33,32 @@ const double REF_V = 0.46831999493879;
 const double KAPPA = 903.2962962;
 const double EPSILON = 0.0088564516;
 
+double _linear_table[256];
+int is_filled = 0;
 
-void rgb_to_husl_nd(double *rgb, double *hsl, int pixels) {
+
+double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
+    int pixels = rows * cols;
+    int size = pixels * 3;
+    double *hsl = (double*) malloc(size * sizeof(double));
     int i;
     double r, g, b;
     double x, y, z;
     double l, u, v;
     double var_u, var_v;
     double c, h, hrad, s;
+    #pragma omp parallel \
+        default(none) \
+        private(i, \
+                r, g, b, x, y, z, l, u, v, c, h, hrad, s, var_u, var_v) \
+        shared(rgb, hsl, size)
+    {
 
-
-//#pragma omp parallel \
-//    num_threads(2) private(i) shared(rgb, hsl, pixels)
-
-
-#pragma omp for private(r, g, b, x, y, z, l, u, v, var_u, var_v, c, h, hrad, s)
-//#pragma omp for simd private(r, g, b, x, y, z, l, u, v, var_u, var_v, c, h,\
-//hrad, s)
-    for (i = 0; i < pixels*3; i+=3) {
-        // from linear RG
-        r = to_linear(rgb[i]);
-        g = to_linear(rgb[i + 1]);
-        b = to_linear(rgb[i + 2]);
+    #pragma omp for schedule(guided)
+    for (i = 0; i < size; i+=3) {
+        r = linear_table[(uint8) (rgb[i] * 255)];
+        g = linear_table[(uint8) (rgb[i+1] * 255)];
+        b = linear_table[(uint8) (rgb[i+2] * 255)];
 
         // to XYZ
         x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b;
@@ -87,13 +97,15 @@ void rgb_to_husl_nd(double *rgb, double *hsl, int pixels) {
         hsl[i + 1] = s;
         hsl[i + 2] = l;
     }
+    } // end parallel
+    return hsl;
 }
 
      
 /*
 Find max chroma given an L, H pair
 */
-static inline double max_chroma(double lightness, double hue) {
+double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
     double sub2;
     if (sub1 > EPSILON) {
@@ -145,20 +157,10 @@ static inline double max_chroma(double lightness, double hue) {
 }
 
 
-static inline double to_light(double y_value) {
+inline double to_light(double y_value) {
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
     } else {
         return (y_value / REF_Y) * KAPPA;
     }
 }
-
-
-static inline double to_linear(double value) {
-    if (value > 0.04045) {
-        return pow((value + 0.055) / (1.0 + 0.055), 2.4);
-    } else {
-        return value / 12.92;
-    }
-}
-
