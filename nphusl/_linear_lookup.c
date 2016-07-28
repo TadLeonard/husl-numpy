@@ -35,3 +35,42 @@ const double linear_table[256] = {
   0.938686,  0.947307,  0.955973,  0.964686,  0.973445,  0.982251,  0.991102,  1.000000,
 };
 
+
+inline double compute_linear(double value) {
+    if (value > 0.04045) {
+        return pow((value + 0.055) / (1.0 + 0.055), 2.4);
+    } else {
+        return value / 12.92;
+    }
+}
+
+void fill_linear_table(void) {
+    if (is_filled) {
+        return;
+    }
+    int j;
+    for (j = 0; j < 256; j++) {
+        _linear_table[j] = compute_linear((float) j / 255.0);
+    }
+    is_filled = 1;
+}
+
+
+inline double to_linear(double value) {
+    return linear_table[(int) value * 255];
+}
+
+
+void print_linear_table(void) {
+    int i;
+    fill_linear_table();
+    printf("\n{\n");
+    for (i = 0; i < 256; i++) {
+        printf("  %f,", _linear_table[i]);
+        if (!((i+1) % 8)) {
+            printf("\n");
+        }
+    }
+    printf("\n}\n");
+}
+
