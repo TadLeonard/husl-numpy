@@ -13,6 +13,11 @@ static double to_light(double);
 double* rgb_to_husl_nd(double*, int, int);
 
 
+/*
+Constants as defined in the reference implementation, husl.py.
+We could gather these from constants.py as this isn't very DRY, but
+that seems like a lot of work.
+*/
 const double M[3][3] = {
     {3.240969941904521, -1.537383177570093, -0.498610760293},
     {-0.96924363628087, 1.87596750150772, 0.041555057407175},
@@ -33,20 +38,27 @@ const double REF_V = 0.46831999493879;
 const double KAPPA = 903.2962962;
 const double EPSILON = 0.0088564516;
 
-double _linear_table[256];
-int is_filled = 0;
 
-
+/* RGB -> HUSL conversion
+Converts an array of c-contiguous RGB doubles to an array of c-contiguous
+HSL doubles. RGB doubles should be in the range [0,1].
+*/
 double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     int pixels = rows * cols;
     int size = pixels * 3;
     double *hsl = (double*) malloc(size * sizeof(double));
+    //double *linear_rgb = (double*) malloc(size * sizeof(double));
     int i;
     double r, g, b;
     double x, y, z;
     double l, u, v;
     double var_u, var_v;
     double c, h, hrad, s;
+
+    /* OpenMP parallel loop.
+    default(none) is used so that all shared and private variables
+    must be marked explicitly
+    */
     #pragma omp parallel \
         default(none) \
         private(i, \
@@ -54,8 +66,18 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         shared(rgb, hsl, size)
     {
 
+    /*
+    #pragma omp for simd
+    for (i = 0; i < size; i+=3) {
+        linear_rgb[i] = linear_table[(uint8) (rgb[i] * 255)];
+        linear_rgb[i+1] = linear_table[(uint8) (rgb[i+1] * 255)];
+        linear_rgb[i+2] = linear_table[(uint8) (rgb[i+2] * 255)];
+    }
+    */
+
     #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
+        // to linear RGB
         r = linear_table[(uint8) (rgb[i] * 255)];
         g = linear_table[(uint8) (rgb[i+1] * 255)];
         b = linear_table[(uint8) (rgb[i+2] * 255)];
@@ -81,7 +103,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         hrad = atan2(v, u);
         h = hrad * (180.0 / M_PI);
         if (h < 0) {
-            h = h + 360;
+            h += 360;
         }
 
         // to HSL (finally!)
@@ -96,23 +118,19 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         hsl[i] = h;
         hsl[i + 1] = s;
         hsl[i + 2] = l;
-    }
-    } // end parallel
+    } // end OMP for
+    } // end OMP parallel
     return hsl;
 }
 
      
 /*
-Find max chroma given an L, H pair
+Find max chroma given an L, H pair.
 */
-double max_chroma(double lightness, double hue) {
+#pragma omp declare simd inbranch
+static double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
-    double sub2;
-    if (sub1 > EPSILON) {
-        sub2 = sub1;
-    } else {
-        sub2 = lightness / KAPPA;
-    }
+    double sub2 = sub1 > EPSILON ? sub1 : lightness / KAPPA;
     double top1;
     double top2;
     double top2_b;
@@ -137,30 +155,35 @@ double max_chroma(double lightness, double hue) {
         m1 = top1 / bottom;
         b1 = top2 / bottom;
         length1 = b1 / (sintheta - m1 * costheta);
-        if (length1 < min_length) {
-            if (length1 > 0) {
-                min_length = length1;
-            }
-        }
-
         m2 = top1 / bottom_b;
         b2 = top2_b / bottom_b;
         length2 = b2 / (sintheta - m2 * costheta);
-        if (length2 < min_length) {
-            if (length2 > 0) {
-                min_length = length2;
-            }
-        }
+
+        min_length = length1 > 0 ? fmin(min_length, length1): min_length;
+        min_length = length2 > 0 ? fmin(min_length, length2): min_length;
     }
 
     return min_length;
 }
 
 
-inline double to_light(double y_value) {
+//#pragma omp declare simd inbranch
+static inline double to_light(double y_value) {
+    /*  (ridiculous experiment)
+    uint8 bigy = y_value > EPSILON;
+    uint8 lily = !bigy;
+    double l_value = ((KAPPA - 1) * lily + 1) *\
+                     ((116 - 1) * bigy + 1) * \
+                     pow(y_value / REF_Y, 1.0/3.0) * \
+                     (1 * bigy + lily * pow(y_value / REF_Y, 2.0/3.0)) - \
+                     (16 * bigy);
+    return l_value;
+    */
+
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
     } else {
         return (y_value / REF_Y) * KAPPA;
     }
 }
+
