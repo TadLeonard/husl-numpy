@@ -3,6 +3,7 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <_linear_lookup.h>
+#include <_scale_const.h>
 
 
 typedef unsigned char uint8;
@@ -11,33 +12,9 @@ typedef unsigned char uint8;
 static double max_chroma(double, double);
 static double to_light(double);
 double* rgb_to_husl_nd(double*, int, int);
-
-
-/*
-Constants as defined in the reference implementation, husl.py.
-We could gather these from constants.py as this isn't very DRY, but
-that seems like a lot of work.
-*/
-const double M[3][3] = {
-    {3.240969941904521, -1.537383177570093, -0.498610760293},
-    {-0.96924363628087, 1.87596750150772, 0.041555057407175},
-    {0.055630079696993, -0.20397695888897, 1.056971514242878}
-};
-
-const double M_INV[3][3] = {
-    {0.41239079926595, 0.35758433938387, 0.18048078840183},
-    {0.21263900587151, 0.71516867876775, 0.072192315360733},
-    {0.019330818715591, 0.11919477979462, 0.95053215224966},
-};
-
-const double REF_X = 0.95045592705167;
-const double REF_Y = 1.0;
-const double REF_Z = 1.089057750759878;
-const double REF_U = 0.19783000664283;
-const double REF_V = 0.46831999493879;
-const double KAPPA = 903.2962962;
-const double EPSILON = 0.0088564516;
-
+static double min_chroma_length(
+    int iteration, double lightness, double sub1, double sub2,
+    double top2, double top2_b, double sintheta, double costheta);
 
 /* RGB -> HUSL conversion
 Converts an array of c-contiguous RGB doubles to an array of c-contiguous
@@ -115,6 +92,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         } else {
             s = (c / max_chroma(l, h)) * 100.0;
         }
+        #pragma omp atomic
         hsl[i] = h;
         hsl[i + 1] = s;
         hsl[i + 2] = l;
@@ -123,7 +101,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     return hsl;
 }
 
-     
+
 /*
 Find max chroma given an L, H pair.
 */
@@ -131,55 +109,44 @@ Find max chroma given an L, H pair.
 static double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
     double sub2 = sub1 > EPSILON ? sub1 : lightness / KAPPA;
-    double top1;
-    double top2;
-    double top2_b;
-    double bottom;
-    double bottom_b;
-    double min_length = 100000.0;
-    double length1, length2;
-    double m1, m2, b1, b2;
+    double top2 = SCALE_SUB2 * lightness * sub2;
+    double top2_b = top2 - (769860.0 * lightness);
     double theta = hue / 360.0 * M_PI * 2.0;
     double sintheta = sin(theta);
     double costheta = cos(theta);
-    int i;
+    double len0, len1, len2;
+    len0 = min_chroma_length(
+        0, lightness, sub1, sub2,
+        top2, top2_b, sintheta, costheta);
+    len1 = min_chroma_length(
+        1, lightness, sub1, sub2,
+        top2, top2_b, sintheta, costheta);
+    len2 = min_chroma_length(
+        2, lightness, sub1, sub2,
+        top2, top2_b, sintheta, costheta);
+    return fmin(fmin(len0, len1), len2);
+}
 
-    for (i = 0; i < 3; i++) {
-        top1 = (284517.0 * M[i][0] - 94839.0 * M[i][2]) * sub2;
-        top2 = ((838422.0 * M[i][2] + 769860.0 * M[i][1] + 731718.0 * M[i][0])
-                * lightness * sub2);
-        top2_b = top2 - (769860.0 * lightness);
-        bottom = (632260.0 * M[i][2] - 126452.0 * M[i][1]) * sub2;
-        bottom_b = bottom + 126452.0;
 
-        m1 = top1 / bottom;
-        b1 = top2 / bottom;
-        length1 = b1 / (sintheta - m1 * costheta);
-        m2 = top1 / bottom_b;
-        b2 = top2_b / bottom_b;
-        length2 = b2 / (sintheta - m2 * costheta);
+static inline double min_chroma_length(
+        int iteration, double lightness, double sub1, double sub2,
+        double top2, double top2_b, double sintheta, double costheta) {
+    double top1 = SCALE_SUB1[iteration] * sub2;
+    double bottom = SCALE_BOTTOM[iteration] * sub2;
+    double bottom_b = bottom + 126452.0;
+    double min_length = 10000.0;
+    double len;
 
-        min_length = length1 > 0 ? fmin(min_length, length1): min_length;
-        min_length = length2 > 0 ? fmin(min_length, length2): min_length;
-    }
-
+    len = (top2 / bottom) / (sintheta - (top1 / bottom) * costheta);
+    min_length = len > 0 ? len : min_length;
+    len = (top2_b / bottom_b) / (sintheta - (top1 / bottom_b) * costheta);
+    min_length = len > 0 ? fmin(len, min_length) : min_length;
     return min_length;
 }
 
 
 //#pragma omp declare simd inbranch
 static inline double to_light(double y_value) {
-    /*  (ridiculous experiment)
-    uint8 bigy = y_value > EPSILON;
-    uint8 lily = !bigy;
-    double l_value = ((KAPPA - 1) * lily + 1) *\
-                     ((116 - 1) * bigy + 1) * \
-                     pow(y_value / REF_Y, 1.0/3.0) * \
-                     (1 * bigy + lily * pow(y_value / REF_Y, 2.0/3.0)) - \
-                     (16 * bigy);
-    return l_value;
-    */
-
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
     } else {

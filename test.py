@@ -131,10 +131,10 @@ def test_to_hue_gray():
 def test_rgb_to_husl():
     rgb_arr = _img()
     husl_new = nphusl.rgb_to_husl(rgb_arr)
-    for i in range(rgb_arr.shape[0]):
-        for j in range(rgb_arr.shape[1]):
-            assert _diff_hue(husl_new[i, j],
-                             husl.rgb_to_husl(*rgb_arr[i, j]))
+    for row in range(rgb_arr.shape[0]):
+        for col in range(rgb_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*rgb_arr[row, col])
+            assert _diff_hue(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
