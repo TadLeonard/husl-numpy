@@ -1,6 +1,7 @@
 """
 Generate a lookup table for Y-coordinate to HUSL light value
 """
+import os
 import sys
 import argparse
 
@@ -39,26 +40,29 @@ avg_spacing = np.sum(unique_light[1:] - unique_light[:-1]) / \
 print("Average light value spacing: {}".format(avg_spacing))
 """
 
+out_h = open("{}.h".format(out), "w") if out else sys.stdout
+out_c = open("{}.c".format(out), "w") if out else sys.stdout
+out_header_name = os.path.split(out_h.name)[-1] if out else "<stdout>"
 
-out_h = open("{}.h".format(out), "rw") if out else sys.stdout
-out_c = open("{}.c".format(out), "rw") if out else sys.stdout
-
-print("""// {} generated with `python {}`
-
-extern const light_table[{}];
+print("""// {}: generated with `python {}`
 
 """.format(out_h.name, " ".join(sys.argv), N), file=out_h)
 
-print("""// {} generated with `python {}`
+print("""// {}: generated with `python {}`
 
 #include <{}>
 
-""".format(out_c.name, " ".join(sys.argv), N), file=out_c)
+""".format(out_c.name, " ".join(sys.argv), out_header_name), file=out_c)
+
+print("extern const int L_TABLE_SIZE;", file=out_h)
+print("const int L_TABLE_SIZE = {};".format(N), file=out_c)
 
 steps = (0.05, 0.3, 1.0)
 for i, step in enumerate(steps[:-1]):
-    print("extern const float step_{};".format(i, step), file=out_h)
-    print("const float step_{} = {:0.04f};".format(i, step), file=out_c)
+    print("extern const float light_step_{};".format(i, step), file=out_h)
+    print("extern const float light_table_{}[{}];".format(i, N), file=out_h)
+    print("const float light_step_{} = {:0.04f};".format(i, step), file=out_c)
+print("extern const float light_table_{}[{}];".format(len(steps)-1, N), file=out_h)
 print("", file=out_c)
 start = 0.0
 for i, stop in enumerate(steps):
