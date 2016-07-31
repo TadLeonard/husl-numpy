@@ -82,12 +82,22 @@ cython_ext = Extension("nphusl._cython_opt",
                        extra_link_args=["-fopenmp"])
 simd_ext = Extension("nphusl._simd_opt",
                      sources=["nphusl/_simd_opt"+ext,
-                              "nphusl/_simd.c", "nphusl/_linear_lookup.c",
-                              "nphusl/_scale_const.c",],
+                              "nphusl/_simd.c",
+                              "nphusl/_linear_lookup.c",
+                              "nphusl/_scale_const.c",
+                              "nphusl/_light_lookup.c",],
                      include_dirs=["nphusl/"],
-                     extra_compile_args=["-fopenmp", "-O3", "-ffast-math",
-                                        ],# "-mveclibabi=svml"],
-                     extra_link_args=["-fopenmp"])
+                     extra_compile_args=["-fopenmp", "-O3",
+                                         "-ffast-math",
+                                         #"-ftree-vectorize",
+                                         #"-ftree-vectorizer-verbose=8",
+                                         #"-msse2",
+                                         #"-mveclibabi=acml"],
+                                         ],
+                     extra_link_args=["-fopenmp",
+                                      #"-lacml",
+                                      #"-L/opt/acml5.3.1/gfortran64/lib/",
+                                     ],)
 if not NO_CYTHON_EXT:
     extensions.append(cython_ext)
 if not NO_SIMD_EXT:
