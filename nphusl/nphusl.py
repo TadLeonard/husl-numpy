@@ -13,7 +13,7 @@ except ImportError:
     expr = None
 try:
     from . import _cython_opt as cyth
-except ImportError:
+except ImportError as e:
     warnings.warn("No Cython extension module: {}".format(e))
     cyth = None
 try:
@@ -67,6 +67,8 @@ def rgb_to_hue(rgb: ndarray) -> ndarray:
     """Convenience function to return JUST the HUSL hue values
     for a given RGB image"""
     lch = luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
+    hsl = rgb_to_husl(rgb)
+    return _channel(hsl, 0)
     return _channel(lch, 2)
 
 
@@ -335,9 +337,10 @@ def _f_inv(l_nd: ndarray) -> ndarray:
 def handle_grayscale(fn):
     """Decorator for handling 1-channel RGB (grayscale) images"""
     def wrapped(rgb: ndarray, *args, **kwargs):
-        if len(rgb.shape) == 3 and rgb.shape[-1] == 1:
+        if rgb.shape[-1] == 1:
             rgb = np.squeeze(rgb)
-        if len(rgb.shape) == 2:
+        if len(rgb.shape) == 2 and rgb.shape[-1] != 3:
+            # 1D grayscale needed squeezing
             _rgb = np.ndarray(rgb.shape + (3,), dtype=rgb.dtype)
             _rgb[:] = rgb[..., None]
             rgb = _rgb
@@ -364,9 +367,9 @@ def handle_rgba(fn):
 @handle_grayscale
 def to_hue(rgb_img: ndarray, chunksize: int = None) -> ndarray:
     """Convert an RGB image of integers to a 2D array of HUSL hues"""
-    out = np.zeros(rgb_img.shape[:2], dtype=np.float)
-    out = transform_rgb(rgb_img, rgb_to_hue, chunksize, out)
-    return out
+    ndims = len(rgb_img.shape)
+    out = np.zeros(rgb_img.shape[:ndims-1], dtype=np.float)
+    return transform_rgb(rgb_img, rgb_to_hue, chunksize, out)
 
 
 def to_rgb(husl_img: ndarray, chunksize: int = None) -> ndarray:
@@ -404,7 +407,9 @@ def transform_rgb(rgb_img: ndarray, transform,
     def trans(chunk: ndarray) -> ndarray:
         return transform(chunk / 255.0)
 
-    chunk_transform(trans, chunks, out)
+    chunk_trans = chunk_transform_1d if len(out.shape) == 1 else \
+                  chunk_transform
+    chunk_trans(trans, chunks, out)
     return out
 
 
@@ -414,6 +419,12 @@ def chunk_transform(transform, chunks,
     for chunk, dims in chunks:
         (rstart, rend), (cstart, cend) = dims
         out[rstart: rend, cstart: cend] = transform(chunk)
+
+
+def chunk_transform_1d(transform, chunks, out: ndarray) -> None:
+    for chunk, dims in chunks:
+        (rstart, rend), _ = dims
+        out[rstart: rend] = transform(chunk)
 
 
 def chunk_img(img: ndarray, chunksize: int = None):
