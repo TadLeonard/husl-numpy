@@ -9,6 +9,9 @@ The basics:
 
 __version__ = "1.4.1"
 
+from contextlib import contextmanager
+from functools import partial
+
 from . import nphusl as _nphusl
 from .nphusl import *
 from . import constants
@@ -27,24 +30,48 @@ except ImportError:
     pass
 
 
-def _enable_fns(fn_dictionary):
+def enable_best_optimized():
+    order = SIMD, CYTHON, NUMEXPR, STANDARD
+    for fn, name in STANDARD.items():
+        fns = (fn_map.get(name) for fn_map in order)
+        chosen_fn = next(f for f in fns if f)
+        _select_fn(name, chosen_fn)
+
+
+@contextmanager
+def _with_fns(enable_other_fns, back_to_std=False):
+    enable_other_fns()
+    yield
+    if back_to_std:
+        enable_standard()
+    else:
+        enable_best_optimized()
+
+
+def _enable_fns(fn_dictionary=None):
+    _set_module_globals(STANDARD)
+    if fn_dictionary:
+        _set_module_globals(fn_dictionary)
+
+
+def _set_module_globals(fn_dictionary):
+    assert fn_dictionary, "implementation not available"
     for name, fn in fn_dictionary.items():
-        globals()[name] = fn
-        setattr(nphusl, name, fn)
+        _select_fn(fn, name)
 
 
-def enable_standard_fns():
-    _enable_fns(STANDARD)
+def _select_fn(fn, name):
+    globals()[name] = fn
+    setattr(nphusl, name, fn)
 
 
-def enable_cython_fns():
-    _enable_fns(CYTHON)
 
-
-def enable_numexpr_fns():
-    _enable_fns(NUMEXPR)
-
-
-def enable_simd_fns():
-    _enable_fns(SIMD)
+enable_standard = partial(_enable_fns, STANDARD)
+enable_cython = partial(_enable_fns, CYTHON)
+enable_numexpr = partial(_enable_fns, NUMEXPR)
+enable_simd = partial(_enable_fns, SIMD)
+standard_enabled = partial(_with_fns, enable_standard)
+cython_enabled = partial(_with_fns, enable_cython)
+numexpr_enabled = partial(_with_fns, enable_numexpr)
+simd_enabled = partial(_with_fns, enable_simd)
 
