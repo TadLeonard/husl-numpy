@@ -78,3 +78,4 @@ int main(int argc, char* argv[]) {
     print_SCALE_SUB2();
     print_SCALE_BOTTOM();
 } 
+

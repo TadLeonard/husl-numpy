@@ -21,10 +21,9 @@ def _test_all(fn, arg, env, impls):
     env = {**globals(), **env}
     print("\n\n{}({}) ====".format(fn, arg))
     for impl in impls:
-        enable = getattr(nphusl, "enable_{}_fns".format(impl))
-        nphusl.enable_standard_fns()
-        enable()
-        t = timeit.timeit("{}({})".format(fn, arg), number=1, globals=env)
+        enable = getattr(nphusl, "{}_enabled".format(impl))
+        with enable():
+            t = timeit.timeit("{}({})".format(fn, arg), number=1, globals=env)
         spaces = len("standard") - len(impl)
         print("  {}: {}{:0.4f}".format(impl, " "*spaces, t))
     print()

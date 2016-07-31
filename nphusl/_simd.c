@@ -3,11 +3,11 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <_linear_lookup.h>
+#include <_light_lookup.h>
 #include <_scale_const.h>
 
 
 typedef unsigned char uint8;
-
 
 static double max_chroma(double, double);
 static double to_light(double);
@@ -15,6 +15,9 @@ double* rgb_to_husl_nd(double*, int, int);
 static double min_chroma_length(
     int iteration, double lightness, double sub1, double sub2,
     double top2, double top2_b, double sintheta, double costheta);
+
+static const double WHITE_LIGHTNESS = 100.0;
+static const double WHITE_HUE = 19.916405993809086;
 
 /* RGB -> HUSL conversion
 Converts an array of c-contiguous RGB doubles to an array of c-contiguous
@@ -30,7 +33,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     double x, y, z;
     double l, u, v;
     double var_u, var_v;
-    double c, h, s;
+    double h, s;
 
     /* OpenMP parallel loop.
     default(none) is used so that all shared and private variables
@@ -38,17 +41,18 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     */
     #pragma omp parallel \
         default(none) \
-        private(i, r, g, b, x, y, z, l, u, v, c, h, s, var_u, var_v) \
+        private(i, r, g, b, x, y, z, l, u, v, h, s, var_u, var_v) \
         shared(rgb, hsl, size)
-    { // BEGIN PARALLEL
+    { // begin parallel
 
     #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
         // to linear RGB
-        r = linear_table[(uint8) (rgb[i] * 255)];
-        g = linear_table[(uint8) (rgb[i+1] * 255)];
-        b = linear_table[(uint8) (rgb[i+2] * 255)];
+        r = rgb[i];
+        g = rgb[i+1];
+        b = rgb[i+2];
 
+        // process pixel extremes
         if (!(r || g || b)) {
             // black pixels are {0, 0, 0} in HUSL
             continue;
@@ -56,21 +60,37 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
             // white pixels are {19.916, 0, 100} in HUSL
             // the odd 19.916 hue is not meaningful in a white pixel,
             // but it's helpful to have this for unit testing
-            hsl[i] = 19.916405993809086;
-            hsl[i+2] = 100.0;
+            hsl[i] = WHITE_HUE;
+            hsl[i+2] = WHITE_LIGHTNESS;
             continue;
         }
 
-        // to XYZ
-        x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b;
-        y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b;
-        z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b;
+        r = linear_table[(uint8) (r*255)];
+        g = linear_table[(uint8) (g*255)];
+        b = linear_table[(uint8) (b*255)];
 
-        var_u = 4 * x / (x + 15 * y + 3 * z);
-        var_v = 9 * y / (x + 15 * y + 3 * z);
-        l = to_light(y);
-        u = 13 * l * (var_u - REF_U);
-        v = 13 * l * (var_v - REF_V);
+        // to XYZ
+        x = M_INV[0][0]*r + M_INV[0][1]*g + M_INV[0][2]*b;
+        y = M_INV[1][0]*r + M_INV[1][1]*g + M_INV[1][2]*b;
+        z = M_INV[2][0]*r + M_INV[2][1]*g + M_INV[2][2]*b;
+
+        // to LUV
+        var_u = 4*x / (x + 15*y + 3*z);
+        var_v = 9*y / (x + 15*y + 3*z);
+    
+        if (y < light_step_0) {
+            l = light_table_0[(unsigned short) (y * L_TABLE_SIZE + 0.5)];
+        } else if (y < light_step_1) {
+            l = light_table_1[(unsigned short) ((y-light_step_1) * L_TABLE_SIZE + 0.5)];
+        } else {
+            l = light_table_2[(unsigned short) ((y-light_step_1) * L_TABLE_SIZE + 0.5)];
+        }
+          
+        //printf("%d: %f\n", \
+               (unsigned short) (y * 4096), \
+               light_table[(unsigned int) (y * 
+        u = 13*l * (var_u - REF_U);
+        v = 13*l * (var_v - REF_V);
 
         // to LCH
         h = atan2(v, u) * (180.0 / M_PI);
@@ -84,6 +104,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
 
     } // end OMP for
     } // end OMP parallel
+
     return hsl;
 }
 

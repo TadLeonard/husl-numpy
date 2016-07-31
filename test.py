@@ -538,11 +538,11 @@ def test_to_husl_rgba():
     assert _diff(hsl_from_rgba, hsl_from_rgb)
 
 
-def _diff(a, b, diff=0.01):
+def _diff(a, b, diff=0.20):
     return np.all(np.abs(a - b) < diff)
 
 
-def _diff_hue(a, b, diff=0.01, diff_ls=5.0):
+def _diff_hue(a, b, diff=0.10, diff_ls=5.0):
     a = np.asarray(a)
     b = np.asarray(b)
     if a.size != 3:
