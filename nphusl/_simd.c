@@ -23,14 +23,14 @@ HSL doubles. RGB doubles should be in the range [0,1].
 double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     int pixels = rows * cols;
     int size = pixels * 3;
-    double *hsl = (double*) malloc(size * sizeof(double));
+    double *hsl = (double*) calloc(size, sizeof(double));
     //double *linear_rgb = (double*) malloc(size * sizeof(double));
     int i;
     double r, g, b;
     double x, y, z;
     double l, u, v;
     double var_u, var_v;
-    double c, h, hrad, s;
+    double c, h, s;
 
     /* OpenMP parallel loop.
     default(none) is used so that all shared and private variables
@@ -38,19 +38,9 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     */
     #pragma omp parallel \
         default(none) \
-        private(i, \
-                r, g, b, x, y, z, l, u, v, c, h, hrad, s, var_u, var_v) \
+        private(i, r, g, b, x, y, z, l, u, v, c, h, s, var_u, var_v) \
         shared(rgb, hsl, size)
-    {
-
-    /*
-    #pragma omp for simd
-    for (i = 0; i < size; i+=3) {
-        linear_rgb[i] = linear_table[(uint8) (rgb[i] * 255)];
-        linear_rgb[i+1] = linear_table[(uint8) (rgb[i+1] * 255)];
-        linear_rgb[i+2] = linear_table[(uint8) (rgb[i+2] * 255)];
-    }
-    */
+    { // BEGIN PARALLEL
 
     #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
@@ -59,43 +49,39 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         g = linear_table[(uint8) (rgb[i+1] * 255)];
         b = linear_table[(uint8) (rgb[i+2] * 255)];
 
+        if (!(r || g || b)) {
+            // black pixels are {0, 0, 0} in HUSL
+            continue;
+        } else if (r == 1 && g == 1 && b == 1) {
+            // white pixels are {19.916, 0, 100} in HUSL
+            // the odd 19.916 hue is not meaningful in a white pixel,
+            // but it's helpful to have this for unit testing
+            hsl[i] = 19.916405993809086;
+            hsl[i+2] = 100.0;
+            continue;
+        }
+
         // to XYZ
         x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b;
         y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b;
         z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b;
 
-        // to LUV
-        if (x == 0 && y == 0 && z == 0) {
-            l = u = v = 0;
-        } else {
-            var_u = 4 * x / (x + 15 * y + 3 * z);
-            var_v = 9 * y / (x + 15 * y + 3 * z);
-            l = to_light(y);
-            u = 13 * l * (var_u - REF_U);
-            v = 13 * l * (var_v - REF_V);
-        }
+        var_u = 4 * x / (x + 15 * y + 3 * z);
+        var_v = 9 * y / (x + 15 * y + 3 * z);
+        l = to_light(y);
+        u = 13 * l * (var_u - REF_U);
+        v = 13 * l * (var_v - REF_V);
 
         // to LCH
-        c = sqrt(pow(u, 2) + pow(v, 2));
-        hrad = atan2(v, u);
-        h = hrad * (180.0 / M_PI);
+        h = atan2(v, u) * (180.0 / M_PI);
         if (h < 0) {
-            h += 360;
+            h += 360.0;
         }
-
-        // to HSL (finally!)
-        if (l > 99.99) {
-            s = 0;
-            l = 100;
-        } else if (l < 0.01) {
-            s = l = 0;
-        } else {
-            s = (c / max_chroma(l, h)) * 100.0;
-        }
-        #pragma omp atomic
+        s = 100 * sqrt(pow(u, 2) + pow(v, 2)) / max_chroma(l, h);
         hsl[i] = h;
-        hsl[i + 1] = s;
-        hsl[i + 2] = l;
+        hsl[i+1] = s > 100.1 ? 0.0: s;
+        hsl[i+2] = l;
+
     } // end OMP for
     } // end OMP parallel
     return hsl;
@@ -105,7 +91,6 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
 /*
 Find max chroma given an L, H pair.
 */
-#pragma omp declare simd inbranch
 static double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
     double sub2 = sub1 > EPSILON ? sub1 : lightness / KAPPA;
@@ -145,7 +130,6 @@ static inline double min_chroma_length(
 }
 
 
-//#pragma omp declare simd inbranch
 static inline double to_light(double y_value) {
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
