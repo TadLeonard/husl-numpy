@@ -2,6 +2,7 @@
 #include <math.h>
 #include <omp.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <_linear_lookup.h>
 #include <_light_lookup.h>
 #include <_scale_const.h>
@@ -15,6 +16,8 @@ double* rgb_to_husl_nd(double*, int, int);
 static double min_chroma_length(
     int iteration, double lightness, double sub1, double sub2,
     double top2, double top2_b, double sintheta, double costheta);
+static double to_hue_degrees(double, double);
+static double to_saturation(double, double, double, double);
 
 static const double WHITE_LIGHTNESS = 100.0;
 static const double WHITE_HUE = 19.916405993809086;
@@ -26,8 +29,14 @@ HSL doubles. RGB doubles should be in the range [0,1].
 double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
     int pixels = rows * cols;
     int size = pixels * 3;
+
+    // HUSL array of H, S, L triplets to be returned
     double *hsl = (double*) calloc(size, sizeof(double));
-    //double *linear_rgb = (double*) malloc(size * sizeof(double));
+    if (hsl == NULL) {
+        fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
+        exit(EXIT_FAILURE);
+    }
+
     int i;
     double r, g, b;
     double x, y, z;
@@ -45,7 +54,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         shared(rgb, hsl, size)
     { // begin parallel
 
-    #pragma omp for schedule(guided)
+    #pragma omp for simd schedule(guided)
     for (i = 0; i < size; i+=3) {
         // to linear RGB
         r = rgb[i];
@@ -65,6 +74,7 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
             continue;
         }
 
+        // to linear RGB
         r = linear_table[(uint8) (r*255)];
         g = linear_table[(uint8) (g*255)];
         b = linear_table[(uint8) (b*255)];
@@ -77,29 +87,18 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
         // to LUV
         var_u = 4*x / (x + 15*y + 3*z);
         var_v = 9*y / (x + 15*y + 3*z);
-    
-        if (y < light_step_0) {
-            l = light_table_0[(unsigned short) (y * L_TABLE_SIZE + 0.5)];
-        } else if (y < light_step_1) {
-            l = light_table_1[(unsigned short) ((y-light_step_1) * L_TABLE_SIZE + 0.5)];
-        } else {
-            l = light_table_2[(unsigned short) ((y-light_step_1) * L_TABLE_SIZE + 0.5)];
-        }
-          
-        //printf("%d: %f\n", \
-               (unsigned short) (y * 4096), \
-               light_table[(unsigned int) (y * 
+        l = to_light(y);
         u = 13*l * (var_u - REF_U);
         v = 13*l * (var_v - REF_V);
 
-        // to LCH
-        h = atan2(v, u) * (180.0 / M_PI);
+        // to LCH to HSL
+        h = to_hue_degrees(v, u);
         if (h < 0) {
-            h += 360.0;
+            h += 360;  // negative angles wrap around into higher hues
         }
-        s = 100 * sqrt(pow(u, 2) + pow(v, 2)) / max_chroma(l, h);
+        s = to_saturation(u, v, l, h);
         hsl[i] = h;
-        hsl[i+1] = s > 100.1 ? 0.0: s;
+        hsl[i+1] = s;
         hsl[i+2] = l;
 
     } // end OMP for
@@ -109,9 +108,25 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols) {
 }
 
 
-/*
-Find max chroma given an L, H pair.
-*/
+// Returns a saturation value.
+// Saturation magnitude is found via sqrt(U**2 + V**2),
+// then it's normalized by the max chroma (dictated by H and L)
+static inline double to_saturation(double u, double v, double l, double h) {
+    return 100*sqrt(pow(u, 2) + pow(v, 2)) / max_chroma(l, h);
+}
+
+
+static const double DEG_PER_RAD = 180.0 / M_PI;
+
+// Returns the angle, in degrees, between the V and U values
+// of the LUV color space. Results in a HUSL hue that may be negative.
+// Negative hues should 'wrap around' to 360.
+static inline double to_hue_degrees(double v_value, double u_value) {
+    return atan2(v_value, u_value) * DEG_PER_RAD;
+}
+
+
+// Returns max chroma given an L, H pair.
 static double max_chroma(double lightness, double hue) {
     double sub1 = pow((lightness + 16.0), 3) / 1560896.0;
     double sub2 = sub1 > EPSILON ? sub1 : lightness / KAPPA;
@@ -151,6 +166,40 @@ static inline double min_chroma_length(
 }
 
 
+// Define a function that takes the Y of the XYZ space
+// and returns a lightness value. If -DUSE_LIGHT_LUT
+// or -DUSE_MULTI_LIGHT_LUT are passed to GCC,
+// a faster-but-less-accurate lookup table approach will be used.
+
+#if defined(USE_LIGHT_LUT)
+static double to_light(double y_value) {
+    unsigned short l_idx;
+    if (y_value < y_thresh_0) {
+        l_idx = y_value/y_idx_step_0 + 0.5;
+    } else if (y_value < y_thresh_1) {
+        l_idx = ((y_value - y_thresh_0)/y_idx_step_1 + 0.5) + L_TABLE_SIZE;
+    } else {
+        l_idx = ((y_value - y_thresh_1)/y_idx_step_2 + 0.5) + L_TABLE_SIZE*2;
+    }
+    return big_light_table[l_idx];
+}
+
+#elif defined(USE_MULTI_LIGHT_LUT)
+static inline double to_light(double y_value) {
+    unsigned short l_idx;
+    if (y_value < y_thresh_0) {
+        l_idx = (y_value*L_TABLE_SIZE + 1.5);
+        return light_table_0[l_idx];
+    } else if (y_value < y_thresh_1) {
+        l_idx = ((y_value-y_thresh_0)*L_TABLE_SIZE + 1.5);
+        return light_table_1[l_idx];
+    } else {
+        l_idx = ((y_value-y_thresh_1)*L_TABLE_SIZE + 1.5);
+        return light_table_2[l_idx];
+    }
+}
+
+#else
 static inline double to_light(double y_value) {
     if (y_value > EPSILON) {
         return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
@@ -158,4 +207,6 @@ static inline double to_light(double y_value) {
         return (y_value / REF_Y) * KAPPA;
     }
 }
+
+#endif
 
