@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <math.h>
 
+
+double compute_linear(double);
+
+
 const double linear_table[256] = {
   0.000000,  0.000304,  0.000607,  0.000911,  0.001214,  0.001518,  0.001821,  0.002125,
   0.002428,  0.002732,  0.003035,  0.003347,  0.003677,  0.004025,  0.004391,  0.004777,
@@ -38,10 +42,7 @@ const double linear_table[256] = {
 };
 
 
-double _linear_table[256];
-
-
-inline double compute_linear(double value) {
+double compute_linear(double value) {
     if (value > 0.04045) {
         return pow((value + 0.055) / (1.0 + 0.055), 2.4);
     } else {
@@ -49,13 +50,16 @@ inline double compute_linear(double value) {
     }
 }
 
+
+double _linear_table[256]; // placeholder for table generation
+
+
 void fill_linear_table(void) {
     int j;
     for (j = 0; j < 256; j++) {
         _linear_table[j] = compute_linear((float) j / 255.0);
     }
 }
-
 
 void print_linear_table(void) {
     int i;
