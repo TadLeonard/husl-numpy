@@ -6,6 +6,8 @@ import numpy
 CYTHONIZE = "--cythonize" in sys.argv
 NO_CYTHON_EXT = "--no-cython-ext" in sys.argv
 NO_SIMD_EXT = "--no-simd-ext" in sys.argv
+NO_LIGHT_LUT = "--no-light-lut" in sys.argv
+NO_CHROMA_LUT = "--no-chroma-lut" in sys.argv
 
 if CYTHONIZE:
     sys.argv.remove("--cythonize")
@@ -13,6 +15,10 @@ if NO_SIMD_EXT:
     sys.argv.remove("--no-simd-ext")
 if NO_CYTHON_EXT:
     sys.argv.remove("--no-cython-ext")
+if NO_LIGHT_LUT:
+    sys.argv.remove("--no-light-lut")
+if NO_CHROMA_LUT:
+    sys.argv.remove("--no-chroma-lut")
 
 
 url = "https://github.com/TadLeonard/husl-numpy"
@@ -77,15 +83,13 @@ ext = '.pyx' if CYTHONIZE else '.c'
 extensions = []
 cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
 simd_compile_args = [
-     #-DUSE_LINEAR_RGB_LUT",
-     "-DUSE_SEGMENTED_LIGHT_LUT",
-     #"-DUSE_LINEAR_LIGHT_LUT",
-     #"-DUSE_CHROMA_LUT,"
      "-ftree-vectorize",
      "-ftree-vectorizer-verbose=8",
-     #"-msse3",
-     #"-mveclibabi=acml"
 ] + cython_compile_args
+if not NO_LIGHT_LUT:
+    simd_compile_args.append("-DUSE_LIGHT_LUT")
+if not NO_CHROMA_LUT:
+    simd_compile_args.append("-DUSE_CHROMA_LUT")
 
 cython_ext = Extension("nphusl._cython_opt",
                        sources=["nphusl/_cython_opt"+ext],
