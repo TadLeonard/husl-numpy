@@ -2,7 +2,6 @@
 
 
 extern const unsigned short L_TABLE_SIZE;
-extern const unsigned short L_BIG_TABLE_SIZE;
 typedef float l_table_t;
 extern const l_table_t y_thresh_0;
 extern const l_table_t y_thresh_1;
@@ -12,4 +11,6 @@ extern const l_table_t light_table_1[1024];
 extern const l_table_t y_idx_step_1;
 extern const l_table_t light_table_2[1024];
 extern const l_table_t y_idx_step_2;
-extern const l_table_t big_light_table[3072];
+extern const l_table_t light_table_linear[1024];
+extern const l_table_t y_idx_step_linear;
+extern const l_table_t light_table_big[3072];
