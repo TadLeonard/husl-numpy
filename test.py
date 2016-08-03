@@ -62,7 +62,7 @@ def test_to_husl_2d():
     assert husl_new.shape == rgb_arr.shape
     for row in range(rgb_arr.shape[0]):
         husl_old = husl.rgb_to_husl(*img[row])
-        assert _diff_hue(husl_new[row], husl_old)
+        assert _diff_husl(husl_new[row], husl_old)
 
 
 @try_optimizations()
@@ -73,7 +73,7 @@ def test_to_husl_3d():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff_hue(husl_new[row, col], husl_old)
+            assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
@@ -86,7 +86,7 @@ def test_to_husl_gray():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff_hue(husl_new[row, col], husl_old)
+            assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
@@ -100,7 +100,7 @@ def test_to_husl_gray_3d():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff_hue(husl_new[row, col], husl_old)
+            assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
@@ -136,7 +136,7 @@ def test_rgb_to_husl():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*rgb_arr[row, col])
-            assert _diff_hue(husl_new[row, col], husl_old)
+            assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
@@ -146,7 +146,7 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = husl.rgb_to_husl(*rgb_arr[row][col])
-            assert _diff_hue(husl_new[row, col], husl_old)
+            assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.numexpr)
@@ -155,7 +155,7 @@ def test_lch_to_husl():
     lch_arr = nphusl.rgb_to_lch(rgb_arr)
     hsl_from_lch_arr = nphusl.lch_to_husl(lch_arr)
     hsl_from_rgb_arr = nphusl.rgb_to_husl(rgb_arr)
-    assert _diff_hue(hsl_from_lch_arr, hsl_from_rgb_arr)
+    assert _diff_husl(hsl_from_lch_arr, hsl_from_rgb_arr)
     for i in range(rgb_arr.shape[0]):
         old_lch = husl.rgb_to_lch(*rgb_arr[i, 0])
         assert _diff(lch_arr[i, 0], old_lch)
@@ -539,41 +539,19 @@ def test_to_husl_rgba():
 
 
 def _diff(a, b, diff=0.20):
-    return np.all(np.abs(a - b) < diff)
+    a = np.asarray(a)
+    b = np.asarray(b)
+    return np.all(np.abs(a - b) <= diff)
 
 
 HI_LIGHT = 90
 LO_SAT = 1
 
 
-def _diff_hue(a, b, diff=0.1, diff_lo_light=0.5, diff_hi_light=1.0):
-    a = np.asarray(a)
-    b = np.asarray(b)
-    a_hue, b_hue = a[..., 0], b[..., 0]
-    saturation = a[..., 1]
-    lightness = a[..., 2]
-    if a.size != 3:
-        lowsat = saturation < LO_SAT
-        lolite = lightness < HI_LIGHT
-        diff_hue_hisat = _diff(a_hue[~lowsat], b_hue[~lowsat], diff=diff)
-        diff_light = _diff(a[..., 2], b[..., 2], diff=diff)
-        diff_sat_lolite = _diff(a[..., 1][lolite], b[..., 1][lolite],
-                                diff=diff_lo_light)
-        diff_sat_hilite = _diff(a[..., 1][~lolite], b[..., 1][~lolite],
-                                diff=diff_hi_light)
-        assert all([diff_hue_hisat, diff_sat_lolite, diff_sat_hilight, diff_light])
-    else:
-        diff_light =  _diff(a[2], b[2], diff=diff)
-        diff_sat = _diff(a[1], b[1], diff=diff_lo_light)
-        diff_hue = _diff(a[0], b[0], diff=diff)
-        if saturation <= LO_SAT:
-            # we don't care about hue in low saturation
-            diff_hue = True
-        if lightness >= HI_LIGHT:
-            # we don't care about saturation in high light
-            diff_sat = _diff(a[1], b[1], diff=diff_hi_light)
-        assert all([diff_hue, diff_sat, diff_light])
-    return True
+def _diff_husl(a, b, max_rgb_diff=1):
+    rgb_a = husl.husl_to_rgb(*a) if len(a) == 3 else nphusl.to_rgb(a)
+    rgb_b = husl.husl_to_rgb(*b) if len(b) == 3 else nphusl.to_rgb(b)
+    return _diff(rgb_a, rgb_b, diff=max_rgb_diff)
 
 
 def test_cython_max_chroma():
