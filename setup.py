@@ -87,7 +87,7 @@ extensions = []
 cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
 simd_compile_args = [
      "-ftree-vectorize",
-     "-ftree-vectorizer-verbose=0",
+     "-ftree-vectorizer-verbose=2",
 ] + cython_compile_args
 if not NO_LIGHT_LUT:
     simd_compile_args.append("-DUSE_LIGHT_LUT")

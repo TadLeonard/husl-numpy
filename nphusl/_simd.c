@@ -19,8 +19,13 @@ typedef unsigned char uint8;
 
 
 static double max_chroma(double, double);
+static void to_linear_rgb(double *r, double *g, double *b);
+static void to_xyz(double r, double g, double b,
+                   double *x, double *y, double *z);
+static void to_luv(double x, double y, double z,
+                   double *l, double *u, double *v);
 static double to_light(double);
-static double to_hue_degrees(double, double);
+static double to_hue(double u, double v);
 static double to_saturation(double, double, double, double);
 static double atan2_approx(double, double);
 
@@ -58,10 +63,10 @@ double* rgb_to_husl_nd(double *rgb, int size) {
     }
 
     int i;
+    char all_zero;
     double r, g, b;
     double x, y, z;
     double l, u, v;
-    double var_u, var_v, var_scale;
     double h, s;
 
     // OpenMP parallel loop.
@@ -70,10 +75,8 @@ double* rgb_to_husl_nd(double *rgb, int size) {
     #pragma omp parallel \
         default(none) \
         shared(rgb, hsl, size) \
-        private(i, r, g, b, x, y, z, l, u, v, \
-                h, s, var_u, var_v, var_scale)
-
-    { // begin parallel
+        private(i, r, g, b, x, y, z, l, u, v, h, s)
+{ // begin parallel
     #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
         // to linear RGB
@@ -94,30 +97,22 @@ double* rgb_to_husl_nd(double *rgb, int size) {
             continue;
         }
 
-        // to linear RGB
-        r = linear_table[(uint8) (r*255)];
-        g = linear_table[(uint8) (g*255)];
-        b = linear_table[(uint8) (b*255)];
-
-        // to CIE XYZ
-        x = M_INV[0][0]*r + M_INV[0][1]*g + M_INV[0][2]*b;
-        y = M_INV[1][0]*r + M_INV[1][1]*g + M_INV[1][2]*b;
-        z = M_INV[2][0]*r + M_INV[2][1]*g + M_INV[2][2]*b;
+        // to linear RGB -> CIEXYZ
+        to_linear_rgb(&r, &g, &b);
+        to_xyz(r, g, b, &x, &y, &z);
 
         // to CIE LUV
-        var_scale = x + 15*y + 3*z;
-        var_u = 4*x / var_scale;
-        var_v = 9*y / var_scale;
-        l = to_light(y);
-        u = 13*l * (var_u - REF_U);
-        v = 13*l * (var_v - REF_V);
+        to_luv(x, y, z, &l, &u, &v);
 
         // to CIE LCH, then finally to HUSL!
-        h = to_hue_degrees(v, u);
-        s = to_saturation(u, v, l, h);
-        hsl[i] = h;
+        h = to_hue(u, v);
+        s = to_saturation(l, u, v, h);
+
+        // Overwrite the calloc'd zeros in HUSL array
+        hsl[i] =  h;
         hsl[i+1] = s;
         hsl[i+2] = l;
+
     } // end OMP for
     } // end OMP parallel
 
@@ -125,11 +120,43 @@ double* rgb_to_husl_nd(double *rgb, int size) {
 }
 
 
+// Convert RGB to linear RGB. See Celebi's paper
+// "Fast Color Space Transformations Using Minimax Approximations".
+static inline void to_linear_rgb(double *r, double *g, double *b) {
+    *r = linear_table[(uint8) ((*r)*255)];
+    *g = linear_table[(uint8) ((*g)*255)];
+    *b = linear_table[(uint8) ((*b)*255)];
+}
+
+
+// Convert linear RGB to CIE XYZ space. See Celebi et al.
+// Note that this is somewhat different than the husl.py reference
+// implementation by Boronine, the creator of HUSL.
+static inline void to_xyz(double r, double g, double b,
+                          double *x, double *y, double *z) {
+    *x = 0.412391*r + 0.357584*g + 0.180481*b;
+    *y = 0.212639*r + 0.715169*g + 0.072192*b;
+    *z = 0.019331*r + 0.119195*g + 0.950532*b;
+}
+
+
+// Convert CIEXYZ to CIELUV
+static inline void to_luv(double x, double y, double z,
+                          double *l, double *u, double *v) {
+    double var_scale = x + 15*y + 3*z;
+    double var_u = 4*x / var_scale;
+    double var_v = 9*y / var_scale;
+    *l = to_light(y);
+    *u = (*l)*13 * (var_u - REF_U);
+    *v = (*l)*13 * (var_v - REF_V);
+}
+
+
 // Returns the HUSL hue.
 // This is the angle, in degrees, between VU (of CIELUV color space).
-static inline double to_hue_degrees(double v_value, double u_value) {
+static inline double to_hue(double u, double v) {
     const double DEG_PER_RAD = 180.0 / M_PI;
-    double hue = atan2_approx(v_value, u_value) * DEG_PER_RAD;
+    double hue = atan2_approx(v, u) * DEG_PER_RAD;
     if (hue < 0.0f) {
         hue += 360;  // negative angles wrap around into higher hues
     }
@@ -140,7 +167,7 @@ static inline double to_hue_degrees(double v_value, double u_value) {
 // Returns a saturation value from UV (of CIELUV), lightness, and hue.
 // Saturation magnitude (hypotenuse b/t U & V) is found via sqrt(U**2 + V**2),
 // then it's normalized by the max chroma, which is dictated by H and L.
-static inline double to_saturation(double u, double v, double l, double h) {
+static inline double to_saturation(double l, double u, double v, double h) {
     return 100*sqrt(u*u + v*v) / max_chroma(l, h);
 }
 
