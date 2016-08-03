@@ -41,8 +41,10 @@ print("""// {}: generated with `python {}`
 """.format(out_c.name, " ".join(sys.argv), out_header_name), file=out_c)
 
 # declare table types, sizes
-print("extern const unsigned short L_TABLE_SIZE;", file=out_h)
-print("const unsigned short L_TABLE_SIZE = {};".format(N), file=out_c)
+print("extern const unsigned short L_SEGMENT_SIZE;", file=out_h)
+print("extern const unsigned short L_FULL_TABLE_SIZE;", file=out_h)
+print("const unsigned short L_SEGMENT_SIZE = {};".format(N), file=out_c)
+print("const unsigned short L_FULL_TABLE_SIZE = {};".format(N*3), file=out_c)
 print("typedef {} l_table_t;".format(table_type), file=out_h)
 
 # declare tables, Y value steps

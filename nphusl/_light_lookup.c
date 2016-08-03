@@ -1,9 +1,10 @@
-// nphusl/_light_lookup.c: generated with `python gen_light_table.py -y 0.070 0.350 -t float -o nphusl/_light_lookup -s 1024`
+// nphusl/_light_lookup.c: generated with `python gen_light_table.py -y 0.070 0.350 -t double -o nphusl/_light_lookup -s 1024`
 
 #include <_light_lookup.h>
 
 
-const unsigned short L_TABLE_SIZE = 1024;
+const unsigned short L_SEGMENT_SIZE = 1024;
+const unsigned short L_FULL_TABLE_SIZE = 3072;
 const l_table_t y_idx_step_0 = 6.8359375e-05;
 const l_table_t y_thresh_0 = 0.0700;
 const l_table_t y_idx_step_1 = 0.00027343749999999997;

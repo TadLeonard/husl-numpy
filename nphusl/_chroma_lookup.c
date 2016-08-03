@@ -1,4 +1,4 @@
-// nphusl/_chroma_lookup.c: generated with `python gen_chroma_table.py -t float -o nphusl/_chroma_lookup`
+// nphusl/_chroma_lookup.c: generated with `python gen_chroma_table.py -t double -o nphusl/_chroma_lookup -s 256`
 
 #include <_chroma_lookup.h>
 
@@ -6,6 +6,11 @@
 const unsigned short C_TABLE_SIZE = 256;
 const c_table_t h_idx_step = 1.40625;
 const c_table_t l_idx_step = 0.390625;
+
+// Ave delta across hue (1st axis): 0.9123208577434357
+// Max delta across hue: 3.5008089061528955
+// Ave delta across luminance (2nd axis): 0.8613114275362406
+// Max delta across luminance: 2.3793368642082373
 const c_table_t chroma_table[256][256] = {
   {
       0.000,   1.075,   2.150,   3.225,   4.301,   5.376,   6.451,   7.526, 
