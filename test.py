@@ -542,22 +542,38 @@ def _diff(a, b, diff=0.20):
     return np.all(np.abs(a - b) < diff)
 
 
-def _diff_hue(a, b, diff=0.10, diff_ls=5.0):
+HI_LIGHT = 90
+LO_SAT = 1
+
+
+def _diff_hue(a, b, diff=0.1, diff_lo_light=0.5, diff_hi_light=1.0):
     a = np.asarray(a)
     b = np.asarray(b)
+    a_hue, b_hue = a[..., 0], b[..., 0]
+    saturation = a[..., 1]
+    lightness = a[..., 2]
     if a.size != 3:
-        saturation = a[..., 1]
-        lowsat = saturation < 1
-        a_hue, b_hue = a[..., 0], b[..., 0]
-        diff_hue_lowsat = _diff(a_hue[lowsat], b_hue[lowsat], diff=diff_ls)
+        lowsat = saturation < LO_SAT
+        lolite = lightness < HI_LIGHT
         diff_hue_hisat = _diff(a_hue[~lowsat], b_hue[~lowsat], diff=diff)
-        diff_rest = _diff(a[..., 1:], b[..., 1:], diff=diff)
-        return diff_hue_lowsat and diff_hue_hisat and diff_rest
+        diff_light = _diff(a[..., 2], b[..., 2], diff=diff)
+        diff_sat_lolite = _diff(a[..., 1][lolite], b[..., 1][lolite],
+                                diff=diff_lo_light)
+        diff_sat_hilite = _diff(a[..., 1][~lolite], b[..., 1][~lolite],
+                                diff=diff_hi_light)
+        assert all([diff_hue_hisat, diff_sat_lolite, diff_sat_hilight, diff_light])
     else:
-        if a[1] < 1:
-            return _diff(a, b, diff=diff_ls)
-        else:
-            return _diff(a, b, diff=diff)
+        diff_light =  _diff(a[2], b[2], diff=diff)
+        diff_sat = _diff(a[1], b[1], diff=diff_lo_light)
+        diff_hue = _diff(a[0], b[0], diff=diff)
+        if saturation <= LO_SAT:
+            # we don't care about hue in low saturation
+            diff_hue = True
+        if lightness >= HI_LIGHT:
+            # we don't care about saturation in high light
+            diff_sat = _diff(a[1], b[1], diff=diff_hi_light)
+        assert all([diff_hue, diff_sat, diff_light])
+    return True
 
 
 def test_cython_max_chroma():
@@ -602,7 +618,7 @@ def _img():
         IMG_CACHED[0] = np.ascontiguousarray(i)
     IMG_CACHED[0][10:20, 10:20] = (
         np.random.rand(10, 10, 3) * 255).astype(int) / 255
-    return IMG_CACHED[0]
+    return IMG_CACHED[0].copy()
 
 
 def main(img_int, chunksize):
