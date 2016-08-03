@@ -75,15 +75,17 @@ classifiers = [
 
 ext = '.pyx' if CYTHONIZE else '.c'
 extensions = []
-cython_compile_args = ("fopenmp", "-O3", "-ffast-math")
-simd_compile_args = (
+cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
+simd_compile_args = [
+     #-DUSE_LINEAR_RGB_LUT",
      "-DUSE_SEGMENTED_LIGHT_LUT",
      #"-DUSE_LINEAR_LIGHT_LUT",
+     #"-DUSE_CHROMA_LUT,"
      "-ftree-vectorize",
      "-ftree-vectorizer-verbose=8",
      #"-msse3",
      #"-mveclibabi=acml"
-) + cython_compile_args
+] + cython_compile_args
 
 cython_ext = Extension("nphusl._cython_opt",
                        sources=["nphusl/_cython_opt"+ext],
