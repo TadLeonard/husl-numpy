@@ -13,6 +13,7 @@
 #include <_simd.h>
 #include <_linear_lookup.h>
 #include <_light_lookup.h>
+#include <_chroma_lookup.h>
 #include <_scale_const.h>
 
 
@@ -20,6 +21,7 @@ typedef unsigned char uint8;
 
 
 static simd_t max_chroma(simd_t, simd_t);
+static simd_t max_chroma_lut(simd_t, simd_t);
 static simd_t to_light(simd_t);
 static simd_t min_chroma_length(
     int iteration, simd_t lightness, simd_t sub1, simd_t sub2,
@@ -27,6 +29,7 @@ static simd_t min_chroma_length(
 static simd_t to_hue_degrees(simd_t, simd_t);
 static simd_t to_saturation(simd_t, simd_t, simd_t, simd_t);
 static simd_t interpolate_light(simd_t, simd_t, simd_t);
+static simd_t interpolate_chroma(simd_t, simd_t, simd_t);
 
 
 static const simd_t WHITE_LIGHTNESS = 100.0;
@@ -118,15 +121,6 @@ double* rgb_to_husl_nd(double *rgb, int rows, int cols, int is_flat) {
 }
 
 
-// Returns a saturation value from UV (of CIELUV), lightness, and hue.
-// Saturation magnitude (hypotenuse) is found via sqrt(U**2 + V**2),
-// then it's normalized by the max chroma, which is dictated by H and L
-#pragma omp declare simd
-static inline simd_t to_saturation(simd_t u, simd_t v, simd_t l, simd_t h) {
-    return 100*sqrt(u*u + v*v) / max_chroma(l, h);
-}
-
-
 // Returns the HUSL hue.
 // This is the angle, in degrees, between VU (of CIELUV color space).
 #pragma omp declare simd
@@ -140,6 +134,72 @@ static inline simd_t to_hue_degrees(simd_t v_value, simd_t u_value) {
 }
 
 
+// Returns a saturation value from UV (of CIELUV), lightness, and hue.
+// Saturation magnitude (hypotenuse b/t U & V) is found via sqrt(U**2 + V**2),
+// then it's normalized by the max chroma, which is dictated by H and L.
+#pragma omp declare simd
+static inline simd_t to_saturation(simd_t u, simd_t v, simd_t l, simd_t h) {
+    simd_t s = 100*sqrt(u*u + v*v) / max_chroma_lut(l, h);
+    if (s > 95) {
+        printf("SSSSS %f\n", s);
+    }
+    return s;
+}
+
+
+//#if defined(USE_CHROMA_LUT)
+// Returns a maximum chroma value  given an L, H pair.
+// Uses the chroma lookup table to perform bilinear interpolation.
+// This LUT approach is important, because finding the max chroma is
+// the most expensive operation in RGB -> HUSL conversion.
+//
+// Reference (see Unit Square section):
+// https://en.wikipedia.org/wiki/Bilinear_interpolation
+#pragma omp declare simd
+static simd_t max_chroma_lut(simd_t lightness, simd_t hue) {
+    // Compute H-value indices (axis 0) and L-value indices (axis 1)
+    simd_t h_idx = hue / h_idx_step;
+    simd_t l_idx = lightness / l_idx_step;
+    unsigned short h_idx_floor = floor(h_idx); 
+    unsigned short l_idx_floor = floor(l_idx);
+
+    // Find four known f() values in the unit square bilinear interp. approach
+    simd_t chroma_00 = chroma_table[h_idx_floor][l_idx_floor];
+    simd_t chroma_10 = chroma_table[h_idx_floor+1][l_idx_floor];
+    simd_t chroma_01 = chroma_table[h_idx_floor][l_idx_floor+1];
+    simd_t chroma_11 = chroma_table[h_idx_floor+1][l_idx_floor+1];
+
+    // Find *normalized* x, y, (1-x), and (1-y) values
+    // It's a coordinate system where the four known chromas are at
+    // (0,0), (1,0), (0,1), and (1,1).
+    simd_t h_norm = h_idx - h_idx_floor;  // our "x" value
+    simd_t l_norm = l_idx - l_idx_floor;  // our "y" value
+    simd_t h_inv = 1 - h_norm;  // (1-x)
+    simd_t l_inv = 1 - l_norm;  // (1-y)
+
+    // Compute f(x,y) = f(0,0)(1-x)(1-y) + f(1,0)x(1-y) + f(0,1)(1-x)y + f(1,1)xy
+    simd_t interp = chroma_00*h_inv*l_inv +
+                    chroma_10*h_norm*l_inv +
+                    chroma_01*h_inv*l_norm +
+                    chroma_11*h_norm*l_norm;
+    
+    simd_t chroma_actual = max_chroma(lightness, hue);
+    if (1) {
+        printf("[%f %f %f %f] = [%f] (%f)\n",
+               chroma_00, chroma_10, chroma_01, chroma_11,
+               interp, chroma_actual);
+    }
+
+    return interp;
+} 
+
+static inline simd_t interpolate_chroma(
+        simd_t val_1, simd_t val_2, simd_t delta_idx) {
+    simd_t val_lo = fmin(val_1, val_2);
+    return val_lo + delta_idx*(fabs(val_2 - val_2));
+}
+    
+//#else
 // Returns max chroma given an L, H pair.
 #pragma omp declare simd
 static simd_t max_chroma(simd_t lightness, simd_t hue) {
