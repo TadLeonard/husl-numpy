@@ -41,11 +41,13 @@ def enable_best_optimized():
 @contextmanager
 def _with_fns(enable_other_fns, back_to_std=False):
     enable_other_fns()
-    yield
-    if back_to_std:
-        enable_standard()
-    else:
-        enable_best_optimized()
+    try:
+        yield
+    finally:
+        if back_to_std:
+            enable_standard()
+        else:
+            enable_best_optimized()
 
 
 def _enable_fns(fn_dictionary=None):
