@@ -139,11 +139,7 @@ static inline simd_t to_hue_degrees(simd_t v_value, simd_t u_value) {
 // then it's normalized by the max chroma, which is dictated by H and L.
 #pragma omp declare simd
 static inline simd_t to_saturation(simd_t u, simd_t v, simd_t l, simd_t h) {
-    simd_t s = 100*sqrt(u*u + v*v) / max_chroma_lut(l, h);
-    if (s > 95) {
-        printf("SSSSS %f\n", s);
-    }
-    return s;
+    return 100*sqrt(u*u + v*v) / max_chroma_lut(l, h);
 }
 
 
@@ -162,6 +158,8 @@ static simd_t max_chroma_lut(simd_t lightness, simd_t hue) {
     simd_t l_idx = lightness / l_idx_step;
     unsigned short h_idx_floor = floor(h_idx); 
     unsigned short l_idx_floor = floor(l_idx);
+    h_idx_floor = fmin(C_TABLE_SIZE-2, h_idx_floor);
+    l_idx_floor = fmin(C_TABLE_SIZE-2, l_idx_floor);
 
     // Find four known f() values in the unit square bilinear interp. approach
     simd_t chroma_00 = chroma_table[h_idx_floor][l_idx_floor];
@@ -183,12 +181,14 @@ static simd_t max_chroma_lut(simd_t lightness, simd_t hue) {
                     chroma_01*h_inv*l_norm +
                     chroma_11*h_norm*l_norm;
     
+    /*
     simd_t chroma_actual = max_chroma(lightness, hue);
     if (1) {
         printf("[%f %f %f %f] = [%f] (%f)\n",
                chroma_00, chroma_10, chroma_01, chroma_11,
                interp, chroma_actual);
     }
+    */
 
     return interp;
 } 
@@ -270,11 +270,12 @@ static simd_t to_light(simd_t y_value) {
     if (y_value < y_thresh_0) {
         idx = y_value/y_idx_step_0;
     } else if (y_value < y_thresh_1) {
-        idx = ((y_value - y_thresh_0)/y_idx_step_1) + L_TABLE_SIZE;
+        idx = ((y_value - y_thresh_0)/y_idx_step_1) + L_SEGMENT_SIZE;
     } else {
-        idx = ((y_value - y_thresh_1)/y_idx_step_2) + L_TABLE_SIZE*2;
+        idx = ((y_value - y_thresh_1)/y_idx_step_2) + L_SEGMENT_SIZE*2;
     }
     idx_floor = floor(idx);
+    idx_floor = fmin(L_FULL_TABLE_SIZE-2, idx_floor);
     light_lo = light_table_big[idx_floor];
     light_hi = light_table_big[idx_floor+1];
     return interpolate_light(light_hi, light_lo, idx-idx_floor);
