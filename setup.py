@@ -75,37 +75,35 @@ classifiers = [
 
 ext = '.pyx' if CYTHONIZE else '.c'
 extensions = []
+cython_compile_args = ("fopenmp", "-O3", "-ffast-math")
+simd_compile_args = (
+     "-DUSE_SEGMENTED_LIGHT_LUT",
+     #"-DUSE_LINEAR_LIGHT_LUT",
+     "-ftree-vectorize",
+     "-ftree-vectorizer-verbose=8",
+     #"-msse3",
+     #"-mveclibabi=acml"
+) + cython_compile_args
 
 cython_ext = Extension("nphusl._cython_opt",
                        sources=["nphusl/_cython_opt"+ext],
-                       extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
+                       extra_compile_args=cython_compile_args,
                        extra_link_args=["-fopenmp"])
 simd_ext = Extension("nphusl._simd_opt",
                      sources=["nphusl/_simd_opt"+ext,
                               "nphusl/_simd.c",
                               "nphusl/_linear_lookup.c",
                               "nphusl/_scale_const.c",
-                              "nphusl/_light_lookup.c",],
+                              "nphusl/_light_lookup.c",
+                              "nphusl/_chroma_lookup.c",],
+                     extra_compile_args=simd_compile_args,
                      include_dirs=["nphusl/"],
-                     extra_compile_args=["-fopenmp",
-                                         "-O3",
-                                         "-ffast-math",
-                                         "-DUSE_LIGHT_LUT",
-                                         #"-DUSE_MULTI_LIGHT_LUT",
-                                         #"-ggdb",
-                                         "-ftree-vectorize",
-                                         #"-ftree-vectorizer-verbose=8",
-                                         #"-msse2",
-                                         #"-mveclibabi=acml",
-                                         ],
-                     extra_link_args=["-fopenmp",
-                                      #"-L/opt/acml5.3.1/gfortran64/lib/",
-                                     ],)
+                     extra_link_args=["-fopenmp",])
+
 if not NO_CYTHON_EXT:
     extensions.append(cython_ext)
 if not NO_SIMD_EXT:
     extensions.append(simd_ext)
-
 if CYTHONIZE:
     from Cython.Build import cythonize
     extensions = cythonize(extensions)
