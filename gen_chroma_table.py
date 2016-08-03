@@ -55,10 +55,23 @@ chroma_table = np.nan_to_num(chroma_table)  # NaN @ hue=0
 
 # declare table, consts
 print("extern const c_table_t chroma_table[{}][{}];".format(N, N), file=out_h)
-print("extern const c_table_t h_idx_step_{};".format(i), file=out_h)
-print("extern const c_table_t l_idx_step_{};".format(i), file=out_h)
+print("extern const c_table_t h_idx_step;", file=out_h)
+print("extern const c_table_t l_idx_step;", file=out_h)
 print("const c_table_t h_idx_step = {};".format(h_idx_step), file=out_c)
 print("const c_table_t l_idx_step = {};".format(l_idx_step), file=out_c)
+
+# some statistics on the lookup tables to gauge their accuracy
+h_diff = np.sum(np.abs(chroma_table[1:, :] - chroma_table[:-1, :]), axis=1) / (N-1)
+h_max = np.max(h_diff)
+h_diff = np.sum(h_diff) / len(h_diff)
+l_diff = np.sum(np.abs(chroma_table[:, 1:] - chroma_table[:, :-1]), axis=0) / (N-1)
+l_max = np.max(l_diff)
+l_diff = np.sum(l_diff) / len(l_diff)
+print("", file=out_c)
+print("// Ave delta across hue (1st axis): {}".format(h_diff),  file=out_c)
+print("// Max delta across hue: {}".format(h_max), file=out_c)
+print("// Ave delta across luminance (2nd axis): {}".format(l_diff), file=out_c)
+print("// Max delta across luminance: {}".format(l_max), file=out_c)
 
 # write out table initializer
 print("const c_table_t chroma_table[{}][{}] = {{".format(N, N), file=out_c)
