@@ -22,6 +22,7 @@ static double max_chroma(double, double);
 static double to_light(double);
 static double to_hue_degrees(double, double);
 static double to_saturation(double, double, double, double);
+static double atan2_approx(double, double);
 
 
 #if defined(USE_LIGHT_LUT)
@@ -73,7 +74,7 @@ double* rgb_to_husl_nd(double *rgb, int size) {
                 h, s, var_u, var_v, var_scale)
 
     { // begin parallel
-    #pragma omp for simd linear(i:3) schedule(guided)
+    #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
         // to linear RGB
         r = rgb[i];
@@ -81,7 +82,6 @@ double* rgb_to_husl_nd(double *rgb, int size) {
         b = rgb[i+2];
 
         // process color extremes
-        /*
         if (!(r || g || b)) {
             // black pixels are {0, 0, 0} in HUSL
             continue;
@@ -93,7 +93,6 @@ double* rgb_to_husl_nd(double *rgb, int size) {
             hsl[i+2] = WHITE_LIGHTNESS;
             continue;
         }
-        */
 
         // to linear RGB
         r = linear_table[(uint8) (r*255)];
@@ -128,10 +127,9 @@ double* rgb_to_husl_nd(double *rgb, int size) {
 
 // Returns the HUSL hue.
 // This is the angle, in degrees, between VU (of CIELUV color space).
-#pragma omp declare simd
 static inline double to_hue_degrees(double v_value, double u_value) {
     const double DEG_PER_RAD = 180.0 / M_PI;
-    double hue = atan2f(v_value, u_value) * DEG_PER_RAD;
+    double hue = atan2_approx(v_value, u_value) * DEG_PER_RAD;
     if (hue < 0.0f) {
         hue += 360;  // negative angles wrap around into higher hues
     }
@@ -142,7 +140,6 @@ static inline double to_hue_degrees(double v_value, double u_value) {
 // Returns a saturation value from UV (of CIELUV), lightness, and hue.
 // Saturation magnitude (hypotenuse b/t U & V) is found via sqrt(U**2 + V**2),
 // then it's normalized by the max chroma, which is dictated by H and L.
-#pragma omp declare simd
 static inline double to_saturation(double u, double v, double l, double h) {
     return 100*sqrt(u*u + v*v) / max_chroma(l, h);
 }
@@ -156,8 +153,7 @@ static inline double to_saturation(double u, double v, double l, double h) {
 //
 // Reference (see Unit Square section):
 // https://en.wikipedia.org/wiki/Bilinear_interpolation
-#pragma omp declare simd
-static double max_chroma(double lightness, double hue) {
+static inline double max_chroma(double lightness, double hue) {
     // Compute H-value indices (axis 0) and L-value indices (axis 1)
     double h_idx = hue / h_idx_step;
     double l_idx = lightness / l_idx_step;
@@ -174,7 +170,7 @@ static double max_chroma(double lightness, double hue) {
 
     // Find *normalized* x, y, (1-x), and (1-y) values
     // It's a coordinate system where the four known chromas are at
-    // (0,0), (1,0), (0,1), and (1,1), so we normalize x and y.
+    // (0,0), (1,0), (0,1), and (1,1), so we normalize hue and luminance.
     double h_norm = h_idx - h_idx_floor;  // our "x" value
     double l_norm = l_idx - l_idx_floor;  // our "y" value
     double h_inv = 1 - h_norm;  // (1-x)
@@ -193,11 +189,10 @@ static inline double interpolate_chroma(
     double val_lo = fmin(val_1, val_2);
     return val_lo + delta_idx*(fabs(val_2 - val_2));
 }
-    
+
 #else
 // Returns max chroma given an L, H pair.
 // Very expensive operation.
-#pragma omp declare simd
 static double max_chroma(double lightness, double hue) {
     double sub1 = pow(lightness + 16.0, 3) / 1560896.0;
     double sub2 = sub1 > EPSILON ? sub1 : lightness / KAPPA;
@@ -222,11 +217,10 @@ static double max_chroma(double lightness, double hue) {
 
 // Returns a min chroma "length" in the HSL space from H and L.
 // The HUSL color space is basically CIELUV, but
-// it overcomes its floating chroma value by "stretching"
+// it overcomes its doubleing chroma value by "stretching"
 // the color space so that a new channel, "saturation"
 // is a percentage in [0, 100] for all possible values of hue and lightness.
 // The images at husl-colors.org explain this more clearly!
-#pragma omp declare simd
 static inline double min_chroma_length(
         int iteration, double lightness, double sub1, double sub2,
         double top2, double top2_b, double sintheta, double costheta) {
@@ -287,6 +281,36 @@ static inline double to_light(double y_value) {
     } else {
         return (y_value / REF_Y) * KAPPA;
     }
+}
+
+#endif
+
+
+#if defined(USE_ATAN2_APPROX)
+// Courtesy of https://gist.github.com/volkansalma/2972237
+static double atan2_approx(double y, double x) {
+    const double PI_4 = M_PI / 4.0;
+    const double PI_3_4 = 3.0 * M_PI / 4.0;
+    double r, angle;
+    double abs_y = fabs(y) + 1e-10f;  // prevents divide-by-zero
+    if (x < 0.0f) {
+        r = (x + abs_y) / (abs_y - x);
+        angle = PI_3_4;
+    } else {
+        r = (x - abs_y) / (x + abs_y);
+        angle = PI_4;
+    }
+    angle += (0.1963f * r * r - 0.9817f) * r;
+    if (y < 0.0f) {
+        return -angle;  // negate if in quad III or IV
+    } else {
+        return angle;
+    }
+}
+
+#else
+static double atan2_approx(double y, double x) {
+    return atan2f(y, x);
 }
 
 #endif
