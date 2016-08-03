@@ -1,5 +1,6 @@
 """
-Generate a lookup table for Y-coordinate to HUSL light value
+Generate a lookup table for CIE XYZ Y-value mapped to
+a HUSL luminance value.
 """
 import os
 import sys
@@ -65,8 +66,8 @@ print("const l_table_t y_idx_step_linear = {};".format(1.0/N), file=out_c)
 print("extern const l_table_t light_table_big[{}];".format(N_BIG), file=out_h)
 print("", file=out_c)
 
-# creating segmented light LUTs
-# write out little tables, collect values into big table
+# initializing segmented light LUTs
+# initialize little tables, collect values into big table
 big_light_lookup = np.zeros((N_BIG,), dtype=float)
 start = 0.0
 for i, stop in enumerate(y_steps):
@@ -76,10 +77,14 @@ for i, stop in enumerate(y_steps):
     uniform_y = np.arange(start, stop, step=step)
     light_lookup = nphusl._nphusl._f(uniform_y)
     big_light_lookup[i*N: i*N+N] = light_lookup
+
+    # collect statistics on LUT to gauge its usefulness
     avg_y_thresh = \
         np.sum(light_lookup[1:] - light_lookup[:-1]) / (N-1)
     print("// Avg light value step size: {:0.4f}".format(
         avg_y_thresh), file=out_c)
+
+    # write out LUT initializer
     print("// Light values for {} <= Y < {}".format(start, stop), file=out_c)
     print("const l_table_t light_table_{}[{}] = {{".format(
           i, N), file=out_c)
@@ -90,7 +95,7 @@ for i, stop in enumerate(y_steps):
     print("};\n", file=out_c)
     start = stop
 
-# write out big segmented table (all values concatenated into one)
+# initialize big segmented table (all values concatenated into one)
 print("const l_table_t light_table_big[{}] = {{".format(
       N_BIG), file=out_c)
 for i, l in enumerate(big_light_lookup):
@@ -99,13 +104,17 @@ for i, l in enumerate(big_light_lookup):
         print("", file=out_c)
 print("};\n", file=out_c)
 
-# write out simple linear table
+# initialize simple linear table
 uniform_y = np.arange(0.0, 1.0, step=1.0/N)
 linear_light_lookup = nphusl._nphusl._f(uniform_y)
+
+# collect statistics on linear LUT to gauge its usefulness
 avg_y_thresh = \
     np.sum(linear_light_lookup[1:] - linear_light_lookup[:-1]) / (N-1)
 print("// Avg light value step size: {:0.4f}".format(
     avg_y_thresh), file=out_c)
+
+# write out initializer
 print("// A lookup table for all values of Y in [0, 1.0)", file=out_c)
 print("const l_table_t light_table_linear[{}] = {{".format(N), file=out_c)
 for i, l in enumerate(linear_light_lookup):
