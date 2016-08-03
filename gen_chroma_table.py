@@ -75,12 +75,18 @@ print("// Max delta across luminance: {}".format(l_max), file=out_c)
 
 # write out table initializer
 print("const c_table_t chroma_table[{}][{}] = {{".format(N, N), file=out_c)
-for i in range(N):
+for i, hue in enumerate(hues):
+    print("  // Index {}: Chromas for hue={} and luminance in [0, 100)"
+          .format(i, hue), file=out_c)
     print("  {", file=out_c)
     print("    ", end="", file=out_c)
-    for j in range(N):
+    l_start = 0
+    for j, light in enumerate(lights):
         print("{:7.3f}".format(chroma_table[i][j]), end=", ", file=out_c)
         if not (j+1) % 8 and j:
+            print(" // L={:0.3f} to L={:0.3f}".format(l_start, light), end="",
+                  file=out_c)
             print("\n    ", end="", file=out_c)
+            l_start = light + l_idx_step
     print("\n  },", file=out_c)
 print("};", file=out_c)
