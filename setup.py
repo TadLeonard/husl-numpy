@@ -8,6 +8,7 @@ NO_CYTHON_EXT = "--no-cython-ext" in sys.argv
 NO_SIMD_EXT = "--no-simd-ext" in sys.argv
 NO_LIGHT_LUT = "--no-light-lut" in sys.argv
 NO_CHROMA_LUT = "--no-chroma-lut" in sys.argv
+NO_ATAN2_APPROX = "--no-atan2-approx" in sys.argv
 
 if CYTHONIZE:
     sys.argv.remove("--cythonize")
@@ -19,6 +20,8 @@ if NO_LIGHT_LUT:
     sys.argv.remove("--no-light-lut")
 if NO_CHROMA_LUT:
     sys.argv.remove("--no-chroma-lut")
+if NO_ATAN2_APPROX:
+    sys.argv.remove("--no-atan2-approx")
 
 
 url = "https://github.com/TadLeonard/husl-numpy"
@@ -84,17 +87,21 @@ extensions = []
 cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
 simd_compile_args = [
      "-ftree-vectorize",
-     "-ftree-vectorizer-verbose=8",
+     "-ftree-vectorizer-verbose=0",
 ] + cython_compile_args
 if not NO_LIGHT_LUT:
     simd_compile_args.append("-DUSE_LIGHT_LUT")
 if not NO_CHROMA_LUT:
     simd_compile_args.append("-DUSE_CHROMA_LUT")
+if not NO_ATAN2_APPROX:
+    simd_compile_args.append("-DUSE_ATAN2_APPROX")
+
 
 cython_ext = Extension("nphusl._cython_opt",
                        sources=["nphusl/_cython_opt"+ext],
                        extra_compile_args=cython_compile_args,
                        extra_link_args=["-fopenmp"])
+
 simd_ext = Extension("nphusl._simd_opt",
                      sources=["nphusl/_simd_opt"+ext,
                               "nphusl/_simd.c",
