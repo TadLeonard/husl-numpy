@@ -36,9 +36,9 @@ def test_perf_husl_to_rgb(impls):
 
 
 def test_perf_rgb_to_husl(impls):
-    rgb = (np.random.rand(1920, 1080, 3) * 255).astype(np.uint8) / 255.0
+    rgb = (np.random.rand(1920, 1080, 3) * 255).astype(np.uint8)
     rgb[30:40] = 0
-    rgb[40:50] = 1
+    rgb[40:50] = 255
     fn = "nphusl.rgb_to_husl"
     _test_all(fn, "rgb", locals(), impls)
 
