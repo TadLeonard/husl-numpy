@@ -1,8 +1,40 @@
 import math
-import numpy as np
-from numpy import ndarray
 import warnings
+
+import numpy as np
 from . import constants
+from . import transform
+from numpy import ndarray
+
+
+### The API
+### From RGB: to_husl, to_hue
+### From HUSL: to_rgb
+
+@transform.handle_rgba
+@transform.handle_grayscale
+@transform.ensure_input_dtype(np.uint8)
+def to_hue(rgb_img: ndarray, chunksize: int = None,
+           out: ndarray = None) -> ndarray:
+    """Convert an RGB image of integers to a 2D array of HUSL hues"""
+    return transform.in_chunks(rgb_img, _rgb_to_hue, chunksize, out)
+
+
+@transform.ensure_output_dtype(nphusl.integer, nphusl.uint8)
+@transform.ensure_input_dtype(nphusl.float64)
+def to_rgb(husl_img: ndarray, chunksize: int = None,
+           out: ndarray = None) -> ndarray:
+    """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
+    return transform.in_chunks(husl_img, chunksize, out)
+
+
+@transform.handle_rgba
+@transform.handle_grayscale
+@transform.ensure_input_dtype(np.uint8)
+def to_husl(rgb_img: ndarray, chunksize: int = None,
+            out: ndarray = None) -> ndarray:
+    """Convert an RGB image of integers to a 3D array of HSL values"""
+    return transform.in_chunks(rgb_img, _rgb_to_husl, chunksize, out)
 
 
 ### Optimization hooks
@@ -33,47 +65,50 @@ SIMD = {}  # cython-wrapped C SIMD parallelization
 
 
 def optimized(fn):
+    """Decorator for functions with multiple implementations.
+    Registers the function in optimization dictionaries and chooses
+    the fastest available implementation. Alternate implementations can
+    be enabled by the user at runtime (e.g. for unit testing)."""
     STANDARD[fn.__name__] = fn
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
     cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
     simd_fn = getattr(simd, fn.__name__, None) if _SIMD_ENABLED else None
-    opt_fn = cython_fn or expr_fn  # prefer cython
-    result_fn = opt_fn or fn
+    opt_fn = simd_fn or cython_fn or expr_fn  # prefer SIMD
     if simd_fn:
         SIMD[fn.__name__] = simd_fn
     if cython_fn:
         CYTHON[fn.__name__] = cython_fn
     if expr_fn:
         NUMEXPR[fn.__name__] = expr_fn
+    result_fn = opt_fn or fn
     return result_fn
 
 
 ### Conversions in the direction of RGB -> HUSL
-
 
 L_MAX = 99.99  # max lightness from original husl.py
 L_MIN =  0.01
 
 
 @optimized
-def rgb_to_husl(rgb_nd: ndarray) -> ndarray:
+def _rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
     of HUSL values"""
-    return lch_to_husl(rgb_to_lch(rgb_nd))
+    return _lch_to_husl(rgb_to_lch(rgb_nd))
 
 
 @optimized
-def rgb_to_hue(rgb: ndarray) -> ndarray:
+def _rgb_to_hue(rgb: ndarray) -> ndarray:
     """Convenience function to return JUST the HUSL hue values
     for a given RGB image"""
-    lch = luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
-    hsl = rgb_to_husl(rgb)
+    lch = _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
+    hsl = _rgb_to_husl(rgb)
     return _channel(hsl, 0)
     return _channel(lch, 2)
 
 
 @optimized
-def lch_to_husl(lch_nd: ndarray) -> ndarray:
+def _lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
     _L, C, _H = (_channel(lch_flat, n) for n in range(3))
@@ -160,11 +195,11 @@ def _ray_length(theta: ndarray, line: list) -> ndarray:
 
 
 def rgb_to_lch(rgb: ndarray) -> ndarray:
-    return luv_to_lch(xyz_to_luv(rgb_to_xyz(rgb)))
+    return _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
 
 
 @optimized
-def luv_to_lch(luv_nd: ndarray) -> ndarray:
+def _luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
     lch_nd = luv_nd.copy()
@@ -178,7 +213,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
 
 
 @optimized
-def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
+def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
     xyz_flat = xyz_nd.reshape(flat_shape)
@@ -199,7 +234,7 @@ def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
-def rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
+def _rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
     return _dot_product(constants.M_INV, rgbl)
 
@@ -242,20 +277,20 @@ def _channel(data: ndarray, last_dim_idx) -> ndarray:
 
 
 @optimized
-def husl_to_rgb(husl_nd: ndarray) -> ndarray:
-    return lch_to_rgb(husl_to_lch(husl_nd))
+def _husl_to_rgb(husl_nd: ndarray) -> ndarray:
+    return _lch_to_rgb(_husl_to_lch(husl_nd))
 
 
-def lch_to_rgb(lch_nd: ndarray) -> ndarray:
-    return xyz_to_rgb(luv_to_xyz(lch_to_luv(lch_nd)))
+def _lch_to_rgb(lch_nd: ndarray) -> ndarray:
+    return _xyz_to_rgb(_luv_to_xyz(_lch_to_luv(lch_nd)))
 
 
-def xyz_to_rgb(xyz_nd: ndarray) -> ndarray:
+def _xyz_to_rgb(xyz_nd: ndarray) -> ndarray:
     xyz_dot = _dot_product(constants.M, xyz_nd)
     return _from_linear(xyz_dot)
 
 
-def lch_to_luv(lch_nd: ndarray) -> ndarray:
+def _lch_to_luv(lch_nd: ndarray) -> ndarray:
     luv_nd = np.zeros(lch_nd.shape, dtype=np.float)
     _L, C, H = (_channel(lch_nd, n) for n in range(3))
     L, U, V  = (_channel(luv_nd, n) for n in range(3))
@@ -274,7 +309,7 @@ def _from_linear(xyz_nd: ndarray) -> ndarray:
     return rgb_nd
 
 
-def husl_to_lch(husl_nd: ndarray) -> ndarray:
+def _husl_to_lch(husl_nd: ndarray) -> ndarray:
     flat_shape = (husl_nd.size // 3, 3)
     lch_flat = np.zeros(flat_shape, dtype=np.float)
     husl_flat = husl_nd.reshape(flat_shape)
@@ -297,7 +332,7 @@ def husl_to_lch(husl_nd: ndarray) -> ndarray:
     return lch_flat.reshape(husl_nd.shape)
 
 
-def luv_to_xyz(luv_nd: ndarray) -> ndarray:
+def _luv_to_xyz(luv_nd: ndarray) -> ndarray:
     flat_shape = (luv_nd.size // 3, 3)
     xyz_flat = np.zeros(flat_shape, dtype=np.float)  # flattened xyz array
     luv_flat = luv_nd.reshape(flat_shape)
@@ -329,131 +364,4 @@ def _f_inv(l_nd: ndarray) -> ndarray:
     out[large] = constants.REF_Y * (((l_nd[large] + 16) / 116) ** 3.0)
     out[small] = constants.REF_Y * l_nd[small] / constants.KAPPA
     return out.reshape(l_nd.shape)
-
-
-### convenience functions
-
-
-def handle_grayscale(fn):
-    """Decorator for handling 1-channel RGB (grayscale) images"""
-    def wrapped(rgb: ndarray, *args, **kwargs):
-        if rgb.shape[-1] == 1:
-            rgb = np.squeeze(rgb)
-        if len(rgb.shape) == 2 and rgb.shape[-1] != 3:
-            # 1D grayscale needed squeezing
-            _rgb = np.ndarray(rgb.shape + (3,), dtype=rgb.dtype)
-            _rgb[:] = rgb[..., None]
-            rgb = _rgb
-        return fn(rgb, *args, **kwargs)
-    return wrapped
-
-
-def handle_rgba(fn):
-    """Decorator for handling 4-channel RGBA images"""
-    def wrapped(rgb: ndarray, *args, **kwargs):
-        if len(rgb.shape) == 3 and rgb.shape[-1] == 4:
-            # assume background is white because I said so
-            warnings.warn("Assuming white RGBA background!")
-            _rgb = rgb[..., :3]
-            _a = rgb[..., 3]
-            r, g, b, a = (rgb[..., n] for n in range(4))
-            _rgb[:] = (_a[..., None] / 255.0) * _rgb
-            rgb = np.round(_rgb).astype(np.uint8)
-        return fn(rgb, *args, **kwargs)
-    return wrapped
-
-
-@handle_rgba
-@handle_grayscale
-def to_hue(rgb_img: ndarray, chunksize: int = None) -> ndarray:
-    """Convert an RGB image of integers to a 2D array of HUSL hues"""
-    ndims = len(rgb_img.shape)
-    out = np.zeros(rgb_img.shape[:ndims-1], dtype=np.float)
-    return transform_rgb(rgb_img, rgb_to_hue, chunksize, out)
-
-
-def to_rgb(husl_img: ndarray, chunksize: int = None) -> ndarray:
-    """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
-    out = np.zeros(husl_img.shape, dtype=np.uint8)
-    chunks = chunk_img(husl_img, chunksize)
-
-    def transform(chunk):
-        float_rgb = husl_to_rgb(chunk)
-        return np.round(float_rgb * 255)  # to be cast to uint8
-
-    chunk_transform(transform, chunks, out)
-    return out
-
-
-@handle_rgba
-@handle_grayscale
-def to_husl(rgb_img: ndarray, chunksize: int = None) -> ndarray:
-    """Convert an RGB image of integers to a 3D array of HSL values"""
-    out = np.zeros(rgb_img.shape, dtype=np.float)
-    out = transform_rgb(rgb_img, rgb_to_husl, chunksize, out)
-    return out
-
-
-@handle_rgba
-@handle_grayscale
-def transform_rgb(rgb_img: ndarray, transform,
-                  chunksize: int = None, out: ndarray = None) -> ndarray:
-    """Transform an `np.ndarray` of RGB ints to some other
-    float represntation (i.e. HUSL)"""
-    chunks = chunk_img(rgb_img, chunksize)
-    if out is None:
-        out = np.zeros(rgb_img.shape, dtype=np.float)
-
-    def trans(chunk: ndarray) -> ndarray:
-        return transform(chunk / 255.0)
-
-    chunk_trans = chunk_transform_1d if len(out.shape) == 1 else \
-                  chunk_transform
-    chunk_trans(trans, chunks, out)
-    return out
-
-
-def chunk_transform(transform, chunks,
-                    out: ndarray) -> None:
-    """Transform chunks of an image and write the result to `out`"""
-    for chunk, dims in chunks:
-        (rstart, rend), (cstart, cend) = dims
-        out[rstart: rend, cstart: cend] = transform(chunk)
-
-
-def chunk_transform_1d(transform, chunks, out: ndarray) -> None:
-    for chunk, dims in chunks:
-        (rstart, rend), _ = dims
-        out[rstart: rend] = transform(chunk)
-
-
-def chunk_img(img: ndarray, chunksize: int = None):
-    rows, cols = img.shape[:2]
-    if chunksize:
-        for row_start, row_end in chunk(rows, chunksize):
-            for col_start, col_end in chunk(cols, chunksize):
-                img_slice = img[row_start: row_end, col_start: col_end]
-                yield img_slice, ((row_start, row_end), (col_start, col_end))
-    else:
-        yield img, ((0, rows), (0, cols))
-
-
-def _chunk_no_idx(img: ndarray, chunksize: int = None):
-    yield from (c[0] for c in chunk_img(img, chunksize))
-
-
-def chunk_many(*arrays, chunksize: int = None):
-    chunk_gens = [_chunk_no_idx(a, chunksize) for a in arrays]
-    return zip(*chunk_gens)
-
-
-def chunk(end: int, chunksize: int):
-    """Generate tuples of (start_idx, end_idx) that breaks a sequence into
-    slices of `chunksize` length"""
-    _start = 0
-    if end > chunksize:
-        for _end in range(chunksize, end, chunksize or 1):
-            yield _start, _end
-            _start = _end
-    yield _start, end
 
