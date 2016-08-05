@@ -15,7 +15,7 @@ BOTTOM_SCALAR = (632260.0 * M3 - 126452.0 * M2)
 BOTTOM_CONST = 126452.0
 
 
-def lch_to_husl(lch_nd: ndarray) -> ndarray:
+def _lch_to_husl(lch_nd: ndarray) -> ndarray:
     flat_shape = (lch_nd.size // 3, 3)
     lch_flat = lch_nd.reshape(flat_shape)
     _L, C, _H = (lch_flat[..., n] for n in range(3))
@@ -42,7 +42,7 @@ def lch_to_husl(lch_nd: ndarray) -> ndarray:
 
 
 
-def luv_to_lch(luv_nd: ndarray) -> ndarray:
+def _luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = luv_nd[..., slice(1, 2)]
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
     lch_nd = luv_nd.copy()
@@ -54,7 +54,7 @@ def luv_to_lch(luv_nd: ndarray) -> ndarray:
     return lch_nd
 
 
-def xyz_to_luv(xyz_nd: ndarray) -> ndarray:
+def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     flat_shape = (xyz_nd.size // 3, 3)
     luv_flat = np.zeros(flat_shape, dtype=np.float)  # flattened luv n-dim array
     xyz_flat = xyz_nd.reshape(flat_shape)

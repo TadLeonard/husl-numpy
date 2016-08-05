@@ -18,18 +18,18 @@ cdef double KAPPA = constants.KAPPA
 cdef double EPSILON = constants.EPSILON
 
 
-def rgb_to_husl(rgb):
+def _rgb_to_husl(rgb):
     if len(rgb.shape) == 3:
-        return np.asarray(rgb_to_husl_3d(rgb))
+        return np.asarray(_rgb_to_husl_3d(rgb))
     else:
-        return rgb_to_husl_2d(rgb)
+        return _rgb_to_husl_2d(rgb)
 
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef double[:, :, ::1] rgb_to_husl_3d(
+cpdef double[:, :, ::1] _rgb_to_husl_3d(
         double[:, :, ::1] rgb):
     cdef Py_ssize_t size = rgb.size
     cdef Py_ssize_t rows = rgb.shape[0]
@@ -62,7 +62,7 @@ cpdef double[:, :, ::1] rgb_to_husl_3d(
             else:
                 var_u = 4 * x / (x + 15 * y + 3 * z)
                 var_v = 9 * y / (x + 15 * y + 3 * z)
-                l = to_light(y)
+                l = _to_light(y)
                 u = 13 * l * (var_u - REF_U)
                 v = 13 * l * (var_v - REF_V)
 
@@ -92,7 +92,7 @@ cpdef double[:, :, ::1] rgb_to_husl_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
+cpdef np.ndarray[ndim=2, dtype=double] _rgb_to_husl_2d(
         np.ndarray[ndim=2, dtype=double] rgb):
     cdef int i
     cdef int rows = rgb.shape[0]
@@ -122,7 +122,7 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
         else:
             var_u = 4 * x / (x + 15 * y + 3 * z)
             var_v = 9 * y / (x + 15 * y + 3 * z)
-            l = to_light(y)
+            l = _to_light(y)
             u = 13 * l * (var_u - REF_U)
             v = 13 * l * (var_v - REF_V)
 
@@ -148,18 +148,18 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
     return husl
 
 
-def rgb_to_hue(rgb):
+def _rgb_to_hue(rgb):
     if len(rgb.shape) == 3:
-        return rgb_to_hue_3d(rgb)
+        return _rgb_to_hue_3d(rgb)
     else:
-        return rgb_to_hue_2d(rgb)
+        return _rgb_to_hue_2d(rgb)
 
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
+cpdef np.ndarray[ndim=2, dtype=double] _rgb_to_hue_3d(
         np.ndarray[ndim=3, dtype=double] rgb):
     cdef int i, j
     cdef int rows = rgb.shape[0]
@@ -191,7 +191,7 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
             else:
                 var_u = 4 * x / (x + 15 * y + 3 * z)
                 var_v = 9 * y / (x + 15 * y + 3 * z)
-                l = to_light(y)
+                l = _to_light(y)
                 u = 13 * l * (var_u - REF_U)
                 v = 13 * l * (var_v - REF_V)
 
@@ -210,7 +210,7 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
+cpdef np.ndarray[ndim=1, dtype=double] _rgb_to_hue_2d(
         np.ndarray[ndim=2, dtype=double] rgb):
     cdef int i
     cdef int rows = rgb.shape[0]
@@ -240,7 +240,7 @@ cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
         else:
             var_u = 4 * x / (x + 15 * y + 3 * z)
             var_v = 9 * y / (x + 15 * y + 3 * z)
-            l = to_light(y)
+            l = _to_light(y)
             u = 13 * l * (var_u - REF_U)
             v = 13 * l * (var_v - REF_V)
 
@@ -258,7 +258,7 @@ cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline double to_light(double y_value) nogil:
+cdef inline double _to_light(double y_value) nogil:
     if y_value > EPSILON:
         return 116 * (y_value / REF_Y) ** (1.0 / 3.0) - 16
     else:
