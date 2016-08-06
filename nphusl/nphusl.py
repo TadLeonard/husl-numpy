@@ -21,8 +21,7 @@ def to_hue(rgb_img: ndarray, chunksize: int = None,
     return transform.in_chunks(rgb_img, _rgb_to_hue, chunksize, out)
 
 
-@transform.ensure_int_output
-@transform.ensure_float_input
+@transform.rgb_int_output
 def to_rgb(husl_img: ndarray, chunksize: int = None,
            out: ndarray = None) -> ndarray:
     """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
@@ -91,22 +90,29 @@ L_MIN =  0.01
 
 
 @optimized
-@transform.ensure_float_input
+@transform.rgb_float_input
 def _rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
     of HUSL values"""
     return _lch_to_husl(_rgb_to_lch(rgb_nd))
 
 
+def _rgb_to_lch(rgb: ndarray) -> ndarray:
+    return _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
+
+
 @optimized
-@transform.ensure_float_input
+@transform.rgb_float_input
 def _rgb_to_hue(rgb: ndarray) -> ndarray:
     """Convenience function to return JUST the HUSL hue values
     for a given RGB image"""
-    lch = _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
     hsl = _rgb_to_husl(rgb)
     return _channel(hsl, 0)
-    return _channel(lch, 2)
+
+
+def _rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
+    rgbl = _to_linear(rgb_nd)
+    return _dot_product(constants.M_INV, rgbl)
 
 
 @optimized
@@ -196,11 +202,6 @@ def _ray_length(theta: ndarray, line: list) -> ndarray:
     return length
 
 
-@transform.ensure_int_input
-def _rgb_to_lch(rgb: ndarray) -> ndarray:
-    return _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
-
-
 @optimized
 def _luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
@@ -237,12 +238,6 @@ def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
-@transform.ensure_int_input
-def _rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
-    rgbl = _to_linear(rgb_nd)
-    return _dot_product(constants.M_INV, rgbl)
-
-
 @optimized
 def _to_light(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
@@ -254,6 +249,7 @@ def _to_light(y_nd: ndarray) -> ndarray:
 
 
 @optimized
+@transform.rgb_float_input
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
     xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
@@ -280,7 +276,6 @@ def _channel(data: ndarray, last_dim_idx) -> ndarray:
 ### Conversions in the direction of HUSL -> RGB
 
 @optimized
-@transform.ensure_int_output
 def _husl_to_rgb(husl_nd: ndarray) -> ndarray:
     return _lch_to_rgb(_husl_to_lch(husl_nd))
 
