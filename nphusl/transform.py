@@ -1,44 +1,94 @@
 """Convenience functions/decorators for handling the
 shape and dtypes of image inputs and outputs"""
 
-from functools import wraps
+import warnings
+from functools import wraps, partial
+from collections import namedtuple
+from enum import Enum
+
+import numpy as np
+from numpy import ndarray
 
 
-def ensure_input_dtype(check_for, replace_with=None):
-    """Decorator for handling input array float/integer dtypes when
-    one or the other is preferred. The `check_for` argument is
-    the NumPy base class to check, the `replace_with` argument is the
-    dtype to use should `np.issubtype(check_for` return False.
-    `replace_with` defaults to `check_for`."""
-    if replace_with is None:
-        replace_with = check_for
+type_tuple = namedtuple("type_tuple", "base exact convert")
+
+
+def to_rgb_int(exact_dtype, arr: ndarray):
+    return to_dtype(exact_dtype, scale_up_rgb(arr))
+
+
+def to_rgb_float(exact_dtype, arr: ndarray):
+    return to_dtype(exact_dtype, scale_down_rgb(arr))
+
+
+def scale_up_rgb(rgb: ndarray):
+    """Convert RGB up to [0, 255] range"""
+    return np.round(rgb*255.0)
+
+
+def scale_down_rgb(rgb: ndarray):
+    """Convert RGB down to [0, 1.0] range"""
+    return rgb/255.0
+
+
+def to_dtype(exact_dtype, arr: ndarray):
+    return arr.astype(exact_dtype)
+
+
+class Dtype(type_tuple, Enum):
+    int = type_tuple(np.integer, np.uint8, to_dtype)
+    float = type_tuple(np.float, np.float64, to_dtype)
+    rgb_int = type_tuple(np.integer, np.uint8, to_rgb_int)
+    rgb_float = type_tuple(np.float, np.float64, to_rgb_float)
+
+
+def ensure_dtype(dtype: Dtype, arr: ndarray):
+    if not np.issubdtype(arr.dtype, dtype.base):
+        arr = dtype.convert(dtype.exact, arr)
+    return arr
+
+
+ensure_int = partial(ensure_dtype, Dtype.int)
+ensure_float = partial(ensure_dtype, Dtype.float)
+ensure_rgb_int = partial(ensure_dtype, Dtype.rgb_int)
+ensure_rgb_float = partial(ensure_dtype, Dtype.rgb_float)
+
+
+def ensure_input_dtype(dtype: Dtype):
+    """Decorator for ensuring that a function gets an array of `dtype`.
+    If a float array is passed when an int is desired, the float array
+    will be converted with something like `(input*255).astype(int)`."""
     def decorated(fn):
         @wraps(fn)
         def wrapped(arr: ndarray, *args, **kwargs):
-            if not np.issubdtype(arr.dtype, check_for):
-                arr = arr.astype(replace_with)
+            arr = ensure_dtype(dtype, arr)
             return fn(arr, *args, **kwargs)
         return wrapped
     return decorated
 
 
-def ensure_output_dtype(check_for, replace_with=None):
-    """Decorator for handling output array float/integer dtypes when
-    one or the other is preferred. The `check_for` argument is
-    the NumPy base class to check, the `replace_with` argument is the
-    dtype to use should `np.issubtype(check_for` return False.
-    `replace_with` defaults to `check_for`."""
-    if replace_with is None:
-        replace_with = check_for
+int_input = ensure_input_dtype(Dtype.int)
+float_input = ensure_input_dtype(Dtype.float)
+rgb_int_input = ensure_input_dtype(Dtype.rgb_int)
+rgb_float_input = ensure_input_dtype(Dtype.rgb_float)
+
+
+def ensure_output_dtype(dtype: Dtype):
+    """Like `ensure_rgb_input_dtype`, but this decorator ensures
+    that the *output* of a function has a specific dtype"""
     def decorated(fn):
         @wraps(fn)
         def wrapped(*args, **kwargs):
-            out = fn(arr, *args, **kwargs)
-            if not np.issubdtype(out, check_for):
-                out = out.astype(replace_with)
-            return out
+            out = fn(*args, **kwargs)
+            return ensure_dtype(dtype, out)
         return wrapped
     return decorated
+
+
+int_output = ensure_output_dtype(Dtype.int)
+float_output = ensure_output_dtype(Dtype.float)
+rgb_int_output = ensure_output_dtype(Dtype.rgb_int)
+rgb_float_output = ensure_output_dtype(Dtype.rgb_float)
 
 
 def handle_grayscale(fn):
@@ -59,15 +109,16 @@ def handle_grayscale(fn):
 def handle_rgba(fn):
     """Decorator for handling 4-channel RGBA images"""
     @wraps(fn)
-    def wrapped(rgb: ndarray, *args, **kwargs):
-        if len(rgb.shape) == 3 and rgb.shape[-1] == 4:
+    def wrapped(arr: ndarray, *args, **kwargs):
+        if len(arr.shape) == 3 and arr.shape[-1] == 4:
             # assume background is white because I said so
             warnings.warn("Assuming white RGBA background!")
-            _rgb = rgb[..., :3]
-            _a = rgb[..., 3]
-            r, g, b, a = (rgb[..., n] for n in range(4))
-            _rgb[:] = (_a[..., None] / 255.0) * _rgb
-            rgb = np.round(_rgb).astype(np.uint8)
+            rgb = arr[..., :3]
+            a = arr[..., 3]
+            ratio = (a / 255.0)
+            rgb = np.round(rgb * ratio[..., None]).astype(np.uint8)
+        else:
+            rgb = arr
         return fn(rgb, *args, **kwargs)
     return wrapped
 
@@ -78,6 +129,8 @@ def in_chunks(img: ndarray, transform: callable,
                   out: ndarray = None, chunksize: int = None) -> ndarray:
     """Transform an image with `transform`, optionally in chunks
     of `chunksize`, and optionally place results into `out` array."""
+    if chunksize and out is None:
+        raise ValueError("`out` array required if `chunksize` is given")
     if chunksize:
         chunks = chunk_img(img, chunksize)
         chunk_trans = chunk_apply_1d if len(out.shape) == 1 else \
