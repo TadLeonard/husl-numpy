@@ -3,6 +3,7 @@ cimport numpy as np
 import cython
 
 from . import constants
+from . import transform
 from cython.parallel import prange, parallel
 from libc.math cimport sin, cos, M_PI, atan2, sqrt
 
@@ -18,6 +19,7 @@ cdef double KAPPA = constants.KAPPA
 cdef double EPSILON = constants.EPSILON
 
 
+@transform.rgb_float_input
 def _rgb_to_husl(rgb):
     if len(rgb.shape) == 3:
         return np.asarray(_rgb_to_husl_3d(rgb))
@@ -148,6 +150,7 @@ cpdef np.ndarray[ndim=2, dtype=double] _rgb_to_husl_2d(
     return husl
 
 
+@transform.rgb_float_input
 def _rgb_to_hue(rgb):
     if len(rgb.shape) == 3:
         return _rgb_to_hue_3d(rgb)
@@ -275,24 +278,24 @@ cdef inline double to_linear(double value) nogil:
         return value / 12.92
 
 
-def husl_to_rgb(hsl):
+def _husl_to_rgb(hsl):
     if len(hsl.shape) == 3:
-        return husl_to_rgb_3d(hsl)
+        return _husl_to_rgb_3d(hsl)
     else:
-        return husl_to_rgb_2d(hsl)
+        return _husl_to_rgb_2d(hsl)
 
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb_3d(
+cpdef np.ndarray[ndim=3, dtype=double] _husl_to_rgb_3d(
         np.ndarray[ndim=3, dtype=double] hsl):
     cdef int i, j, k
     cdef int rows = hsl.shape[0]
     cdef int cols = hsl.shape[1]
     cdef np.ndarray[ndim=3, dtype=double] rgb = (
-        np.zeros(dtype=float, shape=(rows, cols, 3)))
+        np.zeros(dtype=np.float, shape=(rows, cols, 3)))
 
     cdef double h, s, l
     cdef double c
@@ -346,7 +349,7 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] husl_to_rgb_2d(
+cpdef np.ndarray[ndim=2, dtype=double] _husl_to_rgb_2d(
         np.ndarray[ndim=2, dtype=double] hsl):
     cdef int i, k
     cdef int rows = hsl.shape[0]
