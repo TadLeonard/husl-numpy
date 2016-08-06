@@ -2,6 +2,8 @@ import numpy as np
 from numpy import ndarray
 import numexpr as ne
 from . import constants
+from . import transform
+
 
 # Constants used in the original husl.py for L channel comparison
 L_MAX = 99.9999999
@@ -67,7 +69,7 @@ def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     V_var[np.isinf(V_var)] = 0  # correct divide by zero
 
     L, U, V = (luv_flat[..., n] for n in range(3))
-    L[:] = _f(Y)
+    L[:] = _to_light(Y)
     ref_u, ref_v = constants.REF_U, constants.REF_V
     U[:] = ne.evaluate("L * 13 * (U_var - ref_u)")
     V[:] = ne.evaluate("L * 13 * (V_var - ref_v)")
@@ -75,6 +77,7 @@ def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
+@transform.rgb_float_input
 def _to_linear(rgb_nd: ndarray) -> ndarray:
     a = 0.055  # mysterious constant used in husl.to_linear
     xyz_nd = np.zeros(rgb_nd.shape, dtype=np.float)
@@ -87,7 +90,7 @@ def _to_linear(rgb_nd: ndarray) -> ndarray:
     return xyz_nd
 
 
-def _f(y_nd: ndarray) -> ndarray:
+def _to_light(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
     gt = y_flat > constants.EPSILON
