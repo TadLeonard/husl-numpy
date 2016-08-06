@@ -42,7 +42,7 @@ def enable_best_optimized():
 @contextmanager
 def _with_fns(enable_other_fns, back_to_std=False):
     enable_other_fns()
-    revert = enabl_standard if back_to_std else enable_best_optimized
+    revert = enable_standard if back_to_std else enable_best_optimized
     try:
         yield
     finally:
