@@ -31,7 +31,7 @@ def _test_all(fn, arg, env, impls):
 
 def test_perf_husl_to_rgb(impls):
     hsl = np.random.rand(1920, 1080, 3) * 100
-    fn = "nphusl.husl_to_rgb"
+    fn = "nphusl.to_rgb"
     _test_all(fn, "hsl", locals(), impls)
 
 
@@ -39,12 +39,12 @@ def test_perf_rgb_to_husl(impls):
     rgb = (np.random.rand(1920, 1080, 3) * 255).astype(np.uint8)
     rgb[30:40] = 0
     rgb[40:50] = 255
-    fn = "nphusl.rgb_to_husl"
+    fn = "nphusl.to_husl"
     _test_all(fn, "rgb", locals(), impls)
 
 
 def test_perf_rgb_to_hue(impls):
     rgb = np.random.rand(1920, 1080, 3)
-    fn = "nphusl.rgb_to_hue"
+    fn = "nphusl.to_hue"
     _test_all(fn, "rgb", locals(), impls)
 

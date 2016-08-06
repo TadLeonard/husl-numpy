@@ -31,23 +31,22 @@ except ImportError:
 
 
 def enable_best_optimized():
+    print("BEST OPT")
     order = SIMD, CYTHON, NUMEXPR, STANDARD
-    for fn, name in STANDARD.items():
+    for name, fn in STANDARD.items():
         fns = (fn_map.get(name) for fn_map in order)
         chosen_fn = next(f for f in fns if f)
-        _select_fn(name, chosen_fn)
+        _select_fn(chosen_fn, name)
 
 
 @contextmanager
 def _with_fns(enable_other_fns, back_to_std=False):
     enable_other_fns()
+    revert = enabl_standard if back_to_std else enable_best_optimized
     try:
         yield
     finally:
-        if back_to_std:
-            enable_standard()
-        else:
-            enable_best_optimized()
+        revert()
 
 
 def _enable_fns(fn_dictionary=None):
