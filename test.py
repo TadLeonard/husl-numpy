@@ -6,6 +6,9 @@ import numpy as np
 
 import nphusl
 from nphusl.nphusl import _channel
+from nphusl import transform
+from nphusl.transform import ensure_int, ensure_float
+from nphusl import _nphusl
 import husl  # the original husl-colors.org library
 from enum import Enum
 
@@ -57,22 +60,23 @@ def try_optimizations(*opts):
 @try_optimizations()
 def test_to_husl_2d():
     img = _img()[:, 0]
+    float_img = transform.ensure_rgb_float(img)
     rgb_arr = np.ascontiguousarray(img  * 255)
     husl_new = nphusl.to_husl(rgb_arr)
     assert husl_new.shape == rgb_arr.shape
     for row in range(rgb_arr.shape[0]):
-        husl_old = husl._rgb_to_husl(*img[row])
+        husl_old = _ref_to_husl(float_img[row])
         assert _diff_husl(husl_new[row], husl_old)
 
 
 @try_optimizations()
 def test_to_husl_3d():
     img = _img()
-    rgb_arr = img  * 255
-    husl_new = nphusl.to_husl(rgb_arr)
-    for row in range(rgb_arr.shape[0]):
-        for col in range(rgb_arr.shape[1]):
-            husl_old = husl._rgb_to_husl(*img[row, col])
+    float_img = transform.ensure_rgb_float(img)
+    husl_new = nphusl.to_husl(img)
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            husl_old = _ref_to_husl(float_img[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
@@ -85,7 +89,7 @@ def test_to_husl_gray():
     husl_new = nphusl.to_husl(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            husl_old = husl._rgb_to_husl(*img[row, col])
+            husl_old = _ref_to_husl(img[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
@@ -99,18 +103,17 @@ def test_to_husl_gray_3d():
     husl_new = nphusl.to_husl(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            husl_old = husl._rgb_to_husl(*img[row, col])
+            husl_old = _ref_to_husl(img[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_hue_vs_old():
     img = _img()
-    rgb_arr = img  * 255
-    hue_new = nphusl.to_hue(rgb_arr)
-    for row in range(rgb_arr.shape[0]):
-        for col in range(rgb_arr.shape[1]):
-            husl_old = husl._rgb_to_husl(*img[row, col])
+    hue_new = nphusl.to_hue(img)
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            husl_old = _ref_to_husl(img[row, col])
             diff = 5.0 if husl_old[1] < 1 else 0.1
             assert _diff(hue_new[row, col], husl_old[0], diff=diff)
 
@@ -124,7 +127,7 @@ def test_to_hue_gray():
     hue_new = nphusl.to_hue(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            hue_old = husl._rgb_to_husl(*img[row, col])
+            hue_old = _ref_to_husl(img[row, col])
             diff = 5.0 if hue_old[1] < 1 else 0.0001
             assert _diff(hue_new[row, col], hue_old[0], diff=diff)
 
@@ -132,54 +135,54 @@ def test_to_hue_gray():
 @try_optimizations()
 def test_rgb_to_husl():
     rgb_arr = _img()
-    husl_new = nphusl._rgb_to_husl(rgb_arr)
+    husl_new = _nphusl._rgb_to_husl(rgb_arr)
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
-            husl_old = husl._rgb_to_husl(*rgb_arr[row, col])
+            husl_old = _ref_to_husl(rgb_arr[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
 def test_rgb_to_husl_3d():
     rgb_arr = np.ascontiguousarray(_img()[:5, :5])
-    husl_new = nphusl._rgb_to_husl(rgb_arr)
+    husl_new = _nphusl._rgb_to_husl(rgb_arr)
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
-            husl_old = husl._rgb_to_husl(*rgb_arr[row][col])
+            husl_old = _ref_to_husl(rgb_arr[row][col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.numexpr)
 def test_lch_to_husl():
     rgb_arr = _img()
-    lch_arr = nphusl.rgb_to_lch(rgb_arr)
-    hsl_from_lch_arr = nphusl._lch_to_husl(lch_arr)
-    hsl_from_rgb_arr = nphusl._rgb_to_husl(rgb_arr)
+    lch_arr = _nphusl._rgb_to_lch(rgb_arr)
+    hsl_from_lch_arr = _nphusl._lch_to_husl(lch_arr)
+    hsl_from_rgb_arr = _nphusl._rgb_to_husl(rgb_arr)
     assert _diff_husl(hsl_from_lch_arr, hsl_from_rgb_arr)
     for i in range(rgb_arr.shape[0]):
-        old_lch = husl.rgb_to_lch(*rgb_arr[i, 0])
+        old_lch = _ref_to_lch(rgb_arr[i, 0])
         assert _diff(lch_arr[i, 0], old_lch)
 
 
 @try_optimizations(Opt.numexpr)
 def test_lch_to_husl_3d():
     img = _img()
-    lch_new = nphusl.rgb_to_lch(img)
-    hsl_new = nphusl._lch_to_husl(lch_new)
+    lch_new = _nphusl._rgb_to_lch(img)
+    hsl_new = _nphusl._lch_to_husl(lch_new)
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
-            lch_old = husl.rgb_to_lch(*img[row, col])
+            lch_old = _ref_to_lch(img[row, col])
             assert _diff(lch_old, lch_new[row, col])
-            hsl_old = husl._lch_to_husl(lch_old)
+            hsl_old = husl.lch_to_husl(lch_old)
             assert _diff(hsl_new[row, col], hsl_old)
 
 
 @try_optimizations(Opt.numexpr)
 def test_max_lh_for_chroma():
     rgb_arr = _img()[:, 0]
-    lch_arr = nphusl.rgb_to_lch(rgb_arr)
+    lch_arr = _nphusl._rgb_to_lch(rgb_arr)
     with np.errstate(invalid="ignore"):
-        mx_arr = nphusl._max_lh_chroma(lch_arr)
+        mx_arr = _nphusl._max_lh_chroma(lch_arr)
     arrays = zip(mx_arr, lch_arr, rgb_arr)
     for mx, lch, rgb in arrays:
         try:
@@ -196,111 +199,113 @@ def test_max_lh_for_chroma():
 def test_ray_length():
     thetas = np.asarray([0.1, 4.0, 44.4, 500.2])
     lines = (1.0, 4.0), (0.01, 2.0), (3.5, 0.0), (0.0, 0.0)
-    new_lens = [nphusl._ray_length(thetas, l) for l in lines]
+    new_lens = [_nphusl._ray_length(thetas, l) for l in lines]
     for i, (new_len, theta, line) in enumerate(zip(new_lens, thetas, lines)):
         old_len = husl.length_of_ray_until_intersect(theta, line)
         if new_len[i] > -0.0001 and np.isfinite(new_len[i]):
             assert new_len[i] == old_len
         elif old_len is not None:
-            assert False, "Expected a valid length from nphusl._ray_length"
+            assert False, "Expected a valid length from _nphusl._ray_length"
 
 
 @try_optimizations(Opt.numexpr)
 def test_luv_to_lch():
-    rgb_arr = _img()[:, 0]
-    rgb_arr = _img()
+    rgb_arr = _img()[:, 14]
+    float_arr = transform.ensure_rgb_float(rgb_arr)
     rgb_arr = rgb_arr.reshape((rgb_arr.size // 3, 3))
-    xyz_arr = nphusl._rgb_to_xyz(rgb_arr)
-    luv_arr = nphusl._xyz_to_luv(xyz_arr)
-    lch_arr = nphusl._luv_to_lch(luv_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(rgb_arr)
+    luv_arr = _nphusl._xyz_to_luv(xyz_arr)
+    lch_arr = _nphusl._luv_to_lch(luv_arr)
     for i in range(rgb_arr.shape[0]):
-        xyz = husl._rgb_to_xyz(rgb_arr[i])
+        xyz = husl.rgb_to_xyz(float_arr[i])
         assert _diff(xyz, xyz_arr[i])
-        luv = husl._xyz_to_luv(xyz)
+        luv = husl.xyz_to_luv(xyz)
         assert _diff(luv, luv_arr[i])
-        lch = husl._luv_to_lch(luv)
+        lch = husl.luv_to_lch(luv)
         assert _diff(lch, lch_arr[i])
 
 
 @try_optimizations(Opt.numexpr)
 def test_luv_to_lch_3d():
     img = _img()
-    xyz_arr = nphusl._rgb_to_xyz(img)
-    luv_arr = nphusl._xyz_to_luv(xyz_arr)
-    lch_new = nphusl._luv_to_lch(luv_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(img)
+    luv_arr = _nphusl._xyz_to_luv(xyz_arr)
+    lch_new = _nphusl._luv_to_lch(luv_arr)
     for row in range(lch_new.shape[0]):
         for col in range(lch_new.shape[1]):
-            lch_old = husl.rgb_to_lch(*img[row, col])
+            lch_old = _ref_to_lch(img[row, col])
             assert _diff(lch_new[row, col], lch_old)
 
 
 @try_optimizations(Opt.numexpr)
 def test_rgb_to_lch():
     rgb_arr = _img()[:, 0]
-    lch_arr = nphusl.rgb_to_lch(rgb_arr)
+    lch_arr = _nphusl._rgb_to_lch(rgb_arr)
     for lch, rgb in zip(lch_arr, rgb_arr):
-        diff = lch - husl.rgb_to_lch(*rgb)
-        assert _diff(lch, husl.rgb_to_lch(*rgb))
+        diff = lch - _ref_to_lch(rgb)
+        assert _diff(lch, _ref_to_lch(rgb))
 
 
 @try_optimizations(Opt.numexpr)
 def test_rgb_to_lch_3d():
     rgb_arr = _img()
-    lch_arr = nphusl.rgb_to_lch(rgb_arr)
+    lch_arr = _nphusl._rgb_to_lch(rgb_arr)
     for row in range(lch_arr.shape[0]):
         for col in range(lch_arr.shape[1]):
-            old_lch = husl.rgb_to_lch(*rgb_arr[row, col])
+            old_lch = _ref_to_lch(rgb_arr[row, col])
             assert _diff(lch_arr[row, col], old_lch)
 
 
 @try_optimizations(Opt.numexpr)
 def test_rgb_to_lch_chain():
     rgb_arr = _img()[:, 0]
-    xyz_arr = nphusl._rgb_to_xyz(rgb_arr)
-    luv_arr = nphusl._xyz_to_luv(xyz_arr)
-    lch_arr = nphusl._luv_to_lch(luv_arr)
-    lch_arr2 = nphusl.rgb_to_lch(rgb_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(rgb_arr)
+    luv_arr = _nphusl._xyz_to_luv(xyz_arr)
+    lch_arr = _nphusl._luv_to_lch(luv_arr)
+    lch_arr2 = _nphusl._rgb_to_lch(rgb_arr)
     assert np.all(lch_arr == lch_arr2)
 
 
 @try_optimizations(Opt.numexpr)
 def test_xyz_to_luv():
     rgb_arr = _img()[:, 0]
-    xyz_arr = nphusl._rgb_to_xyz(rgb_arr)
-    luv_arr = nphusl._xyz_to_luv(xyz_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(rgb_arr)
+    luv_arr = _nphusl._xyz_to_luv(xyz_arr)
     for luv, xyz in zip(luv_arr, xyz_arr):
-        diff = luv - husl._xyz_to_luv(xyz)
-        assert _diff(luv, husl._xyz_to_luv(xyz))
+        diff = luv - husl.xyz_to_luv(xyz)
+        assert _diff(luv, husl.xyz_to_luv(xyz))
 
 
 @try_optimizations(Opt.numexpr)
 def test_xyz_to_luv_3d():
     rgb_arr = _img()
-    xyz_arr = nphusl._rgb_to_xyz(rgb_arr)
-    luv_arr = nphusl._xyz_to_luv(xyz_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(rgb_arr)
+    luv_arr = _nphusl._xyz_to_luv(xyz_arr)
     for row in range(luv_arr.shape[0]):
         for col in range(luv_arr.shape[1]):
-            old_luv = husl._xyz_to_luv(xyz_arr[row, col])
+            old_luv = husl.xyz_to_luv(xyz_arr[row, col])
             assert _diff(luv_arr[row, col], old_luv)
 
 
 @try_optimizations(Opt.numexpr)
 def test_rgb_to_xyz():
     rgb_arr = _img()[:, 0]
-    xyz_arr = nphusl._rgb_to_xyz(rgb_arr)
-    for xyz, rgb in zip(xyz_arr, rgb_arr):
-        diff = xyz - husl._rgb_to_xyz(rgb)
-        assert _diff(xyz, husl._rgb_to_xyz(rgb))
+    float_arr = transform.ensure_rgb_float(rgb_arr)
+    xyz_arr = _nphusl._rgb_to_xyz(rgb_arr)
+    for xyz, rgb, rgbf in zip(xyz_arr, rgb_arr, float_arr):
+        diff = xyz - husl.rgb_to_xyz(rgbf)
+        assert _diff(xyz, husl.rgb_to_xyz(rgbf))
 
 
 @try_optimizations(Opt.numexpr)
 def test_rgb_to_xyz_3d():
     img = _img()
-    xyz_arr = nphusl._rgb_to_xyz(img)
+    float_img = transform.ensure_rgb_float(img)
+    xyz_arr = _nphusl._rgb_to_xyz(img)
     for row in range(img.shape[0]):
         for col in range(img.shape[1]):
             assert _diff(xyz_arr[row, col],
-                         husl._rgb_to_xyz(img[row, col]))
+                         husl.rgb_to_xyz(float_img[row, col]))
 
 
 @try_optimizations(Opt.numexpr)
@@ -309,8 +314,8 @@ def test_to_linear():
     b = 0.055 - 0.020
     c = 0.0
     d = 1.0
-    for val in (a, b, c, d):
-        assert husl.to_linear(val) == nphusl._to_linear(np.array([val]))[0]
+    for val in (v * 255 for v in (a, b, c, d)):
+        assert husl.to_linear(val) == _nphusl._to_linear(np.array([val]))[0]
 
 
 @try_optimizations(Opt.numexpr)
@@ -330,7 +335,7 @@ def test_dot():
 @try_optimizations(Opt.numexpr)
 def _check_dot(test_array):
     m_inv = husl.m_inv
-    new_dot = nphusl._dot_product(m_inv, test_array)
+    new_dot = _nphusl._dot_product(m_inv, test_array)
     flat_input = test_array.reshape((test_array.size // 3, 3))
     flat_output = new_dot.reshape((new_dot.size // 3, 3))
     for new_dot, rgb in zip(flat_output, flat_input):
@@ -339,11 +344,11 @@ def _check_dot(test_array):
 
 
 @try_optimizations(Opt.numexpr)
-def test_f():
+def test_to_light():
     val_a = husl.epsilon + 0.4
     val_b = husl.epsilon - 0.003
-    assert husl.f(val_a) == nphusl._f(np.array([val_a]))[0]
-    assert husl.f(val_b) == nphusl._f(np.array([val_b]))[0]
+    assert husl.f(val_a) == _nphusl._to_light(np.array([val_a]))[0]
+    assert husl.f(val_b) == _nphusl._to_light(np.array([val_b]))[0]
 
 
 ### Tests for conversion in HUSL -> RGB direction
@@ -352,42 +357,40 @@ def test_f():
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_rgb_3d():
     img = _img()
-    int_img = np.ndarray(shape=img.shape, dtype=np.uint8)
-    int_img[:] = img * 255
-    husl = nphusl._rgb_to_husl(img)
+    husl = _nphusl._rgb_to_husl(img)
     rgb = nphusl.to_rgb(husl)
-    assert np.all(rgb == int_img)
+    assert np.all(rgb == img)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_rgb_2d():
     img = np.ascontiguousarray(_img()[:, 17])
-    int_img = np.ndarray(shape=img.shape, dtype=np.uint8)
-    int_img[:] = img * 255
-    husl = nphusl._rgb_to_husl(img)
+    husl = _nphusl._rgb_to_husl(img)
     rgb = nphusl.to_rgb(husl)
-    assert np.all(rgb == int_img)
+    assert _diff(rgb, img, diff=2)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_husl_to_rgb():
     img = np.ascontiguousarray(_img()[25:, :5])
-    husl = nphusl._rgb_to_husl(img)
-    rgb = nphusl._husl_to_rgb(husl)
+    husl = _nphusl._rgb_to_husl(img)
+    rgb = transform.ensure_rgb_int(_nphusl._husl_to_rgb(husl))
     assert _diff(img, rgb)
 
 
 def test_lch_to_rgb():
     img = _img()
-    lch = nphusl.rgb_to_lch(img)
-    rgb = nphusl._lch_to_rgb(lch)
-    assert _diff(rgb, img)
+    float_img = transform.ensure_rgb_float(img)
+    lch = _nphusl._rgb_to_lch(float_img)
+    rgb = _nphusl._lch_to_rgb(lch)
+    int_rgb = transform.ensure_rgb_int(rgb)
+    assert _diff(int_rgb, img, diff=2)
 
 
 def test_xyz_to_rgb():
-    img = _img()
-    xyz = nphusl._rgb_to_xyz(img)
-    rgb = nphusl._xyz_to_rgb(xyz)
+    img = ensure_float(_img())
+    xyz = _nphusl._rgb_to_xyz(img)
+    rgb = _nphusl._xyz_to_rgb(xyz)
     assert _diff(img, rgb)
 
 
@@ -402,38 +405,38 @@ def test_from_linear():
 @try_optimizations(Opt.numexpr)
 def test_husl_to_lch():
     img = _img()
-    lch = nphusl.rgb_to_lch(img)
-    husl = nphusl._rgb_to_husl(img)
-    lch_2 = nphusl._husl_to_lch(husl)
+    lch = _nphusl._rgb_to_lch(img)
+    husl = _nphusl._rgb_to_husl(img)
+    lch_2 = _nphusl._husl_to_lch(husl)
     assert _diff(lch, lch_2)
 
 
 @try_optimizations(Opt.numexpr)
 def test_luv_to_xyz():
     img = _img()
-    xyz = nphusl._rgb_to_xyz(img)
-    luv = nphusl._xyz_to_luv(xyz)
-    xyz_2 = nphusl.luv_to_xyz(luv)
+    xyz = _nphusl._rgb_to_xyz(img)
+    luv = _nphusl._xyz_to_luv(xyz)
+    xyz_2 = _nphusl._luv_to_xyz(luv)
     assert _diff(xyz_2, xyz)
 
 
 @try_optimizations(Opt.numexpr)
 def test_lch_to_luv():
     img = _img()
-    lch = nphusl.rgb_to_lch(img)
-    luv = nphusl._lch_to_luv(lch)  # we're testing this
-    xyz = nphusl._rgb_to_xyz(img)
-    luv_2 = nphusl._xyz_to_luv(xyz)
-    lch_2 = nphusl._luv_to_lch(luv_2)
+    lch = _nphusl._rgb_to_lch(img)
+    luv = _nphusl._lch_to_luv(lch)  # we're testing this
+    xyz = _nphusl._rgb_to_xyz(img)
+    luv_2 = _nphusl._xyz_to_luv(xyz)
+    lch_2 = _nphusl._luv_to_lch(luv_2)
     assert _diff(lch_2, lch)  # just a sanity check on RGB -> LCH
     assert _diff(luv, luv_2)
 
 
 @try_optimizations(Opt.numexpr)
-def test_f_inv():
+def test_from_light():
     val_a = 8 + 1.5
     val_b = 8 - 3.5
-    from nphusl.nphusl import _f_inv
+    _f_inv = nphusl._nphusl._from_light
     assert husl.f_inv(val_a) == _f_inv(np.array([val_a]))[0]
     assert husl.f_inv(val_b) == _f_inv(np.array([val_b]))[0]
 
@@ -464,9 +467,9 @@ def test_chunk():
     """Ensures that the chunk iterator breaks an image into NxN squares"""
     img = _img().copy()
     assert not np.all(img[:10, :10] == 0)
-    for i, (chunk, _) in enumerate(nphusl.chunk_img(img, 10)):
+    for i, (chunk, _) in enumerate(transform.chunk_img(img, 10)):
         chunk[:] = i
-    for i, (chunk, _) in enumerate(nphusl.chunk_img(img, 10)):
+    for i, (chunk, _) in enumerate(transform.chunk_img(img, 10)):
         assert np.all(chunk == i)
     assert np.all(img[:10, :10] == 0)
 
@@ -476,21 +479,20 @@ def test_chunk_transform():
     assert np.sum(img == 0) != 0  # assert that there are some 0,0,0 pixels
     zero_at = np.where(img == 0)
 
-    def transform(chunk):
+    def trans_fn(chunk):
         chunk[chunk == 0] = 100
         return chunk
 
-    chunks = nphusl.chunk_img(img, 10)
-    nphusl.chunk_transform(transform, chunks, img)
+    chunks = transform.chunk_img(img, 10)
+    transform.chunk_apply(trans_fn, chunks, out=img)
     assert np.sum(img == 0) == 0
     assert np.all(img[zero_at] == 100)
-    img[zero_at] = 0  # reset for multiple test iters
 
 
 def test_transform_rgb():
     img = _img()
-    as_husl = nphusl._rgb_to_husl(img / 255.0)
-    chunk_husl = nphusl.transform_rgb(img, nphusl._rgb_to_husl, 10)
+    as_husl = nphusl.to_husl(img)
+    chunk_husl = transform.in_chunks(img, nphusl.to_husl, 10)
     assert _diff(as_husl, chunk_husl)
 
 
@@ -505,7 +507,7 @@ def test_to_hue_2d():
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_hue_3d():
     img = _img()  # 3D
-    as_husl = nphusl._rgb_to_husl(img / 255.0)
+    as_husl = _nphusl._rgb_to_husl(img / 255.0)
     just_hue = nphusl.to_hue(img)
     assert _diff(as_husl[..., 0], just_hue)
 
@@ -518,7 +520,7 @@ def test_handle_rgba():
     rgba[..., 3] = alpha
     ratio = alpha / 255.0
     do_nothing = lambda img: img
-    to_rgb = nphusl.handle_rgba(do_nothing)
+    to_rgb = transform.handle_rgba(do_nothing)
     new_rgb = to_rgb(rgba)
     should_be = np.round(rgb * ratio).astype(np.uint8)
     assert _diff(new_rgb, should_be)
@@ -532,10 +534,27 @@ def test_to_husl_rgba():
     alpha = 0x80  # 50%
     rgba[..., 3] = alpha
     ratio = alpha / 255.0
-    new_rgb = np.round(rgb * ratio).astype(dtype=np.uint8)
+    new_rgb = np.round(rgb * ratio).astype(np.uint8)
     hsl_from_rgba = nphusl.to_husl(rgba)
     hsl_from_rgb = nphusl.to_husl(new_rgb)
     assert _diff(hsl_from_rgba, hsl_from_rgb)
+
+
+def test_cython_max_chroma():
+    from nphusl import _cython_opt
+    husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
+    cyth_chroma = _cython_opt._test_max_chroma(0.25, 40.0)
+    assert abs(husl_chroma - cyth_chroma) < 0.001
+
+
+def _ref_to_husl(rgb):
+    asfloat = (c/255.0 for c in rgb)
+    return husl.rgb_to_husl(*asfloat)
+
+
+def _ref_to_lch(rgb):
+    asfloat = (c/255.0 for c in rgb)
+    return husl.rgb_to_lch(*asfloat)
 
 
 def _diff(a, b, diff=0.20):
@@ -549,37 +568,9 @@ LO_SAT = 1
 
 
 def _diff_husl(a, b, max_rgb_diff=1):
-    rgb_a = husl._husl_to_rgb(*a) if len(a) == 3 else nphusl.to_rgb(a)
-    rgb_b = husl._husl_to_rgb(*b) if len(b) == 3 else nphusl.to_rgb(b)
+    rgb_a = husl.husl_to_rgb(*a) if len(a) == 3 else nphusl.to_rgb(a)
+    rgb_b = husl.husl_to_rgb(*b) if len(b) == 3 else nphusl.to_rgb(b)
     return _diff(rgb_a, rgb_b, diff=max_rgb_diff)
-
-
-def test_cython_max_chroma():
-    from nphusl import _cython_opt
-    husl_chroma = husl.max_chroma_for_LH(0.25, 40.0)
-    cyth_chroma = _cython_opt._test_max_chroma(0.25, 40.0)
-    assert abs(husl_chroma - cyth_chroma) < 0.001
-
-
-def test_cython__husl_to_rgb():
-    from nphusl import _cython_opt as cy
-    hsl = np.ndarray(dtype=float, shape=(9, 9, 3))
-    hsl[:] = 200.0, 50.1, 30.4
-    hsl[:] /= 255.0
-    rgb = cy._husl_to_rgb(hsl)
-    rgb_std = husl._husl_to_rgb(*(200.0/255, 50.1/255, 30.4/255))
-    assert _diff(rgb, rgb_std)
-
-
-def test_cython__rgb_to_husl():
-    from nphusl import _cython_opt as cy
-    rgb = np.ndarray(dtype=float, shape=(2, 2, 3))
-    rgb[:] = 200.0, 90.2, 240.4
-    rgb[:] /= 255.0
-    hsl = cy._rgb_to_husl(rgb)
-    hsl_std = husl._rgb_to_husl(*(200.0/255, 90.2/255, 240.4/255))
-    assert _diff(hsl, hsl_std)
-
 
 
 IMG_CACHED = [None]
@@ -589,21 +580,20 @@ def _img():
     if IMG_CACHED[0] is None:
         i = imread.imread("images/gelface.jpg")
         i[50:100, 50:100] = np.random.rand(50, 50, 3) * 255
-        i = i / 255.0
         i = i[::4, ::4]
-        i[0] = 0.0  # ensure we get all black
-        i[1] = 1.0  # ensure we get all white
+        i[0] = 0  # ensure we get all black
+        i[1] = 255  # ensure we get all white
         IMG_CACHED[0] = np.ascontiguousarray(i)
     IMG_CACHED[0][10:20, 10:20] = (
-        np.random.rand(10, 10, 3) * 255).astype(int) / 255
-    return IMG_CACHED[0].copy()
+        np.random.rand(10, 10, 3) * 255).astype(np.uint8) / 255.0
+    return IMG_CACHED[0].copy().astype(np.uint8)
 
 
 def main(img_int, chunksize):
     img_float = img_int / 255.0
     out = np.zeros(img_float.shape, dtype=np.float)
-    chunks = nphusl.chunk_img(img_float, chunksize=chunksize)
-    nphusl.chunk_transform(nphusl._rgb_to_husl, chunks, out)
+    chunks = transform.chunk_img(img_float, chunksize=chunksize)
+    transform.chunk_transform(nphusl._rgb_to_husl, chunks, out)
 
 
 if __name__ == "__main__":
