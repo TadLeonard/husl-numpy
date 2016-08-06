@@ -9,17 +9,18 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <time.h>
+ 
 #include <omp.h>
+#include <_simd.h>
 #include <_linear_lookup.h>
 #include <_scale_const.h>
 
 
-typedef unsigned char uint8;
-
-
 static double max_chroma(double, double);
-static void to_linear_rgb(double *r, double *g, double *b);
+//static void to_linear_rgb(double *r, double *g, double *b);
+static void to_linear_rgb(uint8 r, uint8 g, uint8 b,
+                          double *rl, double *gl, double *bl);
 static void to_xyz(double r, double g, double b,
                    double *x, double *y, double *z);
 static void to_luv(double x, double y, double z,
@@ -54,7 +55,7 @@ static const double WHITE_HUE = 19.916405993809086;
 // RGB -> HUSL conversion
 // Converts an array of c-contiguous RGB doubles to an array of c-contiguous
 // HSL doubles. RGB doubles should be in the range [0,1].
-double* rgb_to_husl_nd(double *rgb, int size) {
+double* rgb_to_husl_nd(uint8 *rgb, int size) {
     // HUSL array of H, S, L triplets to be returned
     double *hsl = (double*) calloc(size, sizeof(double));
     if (hsl == NULL) {
@@ -63,32 +64,35 @@ double* rgb_to_husl_nd(double *rgb, int size) {
     }
 
     int i;
-    char all_zero;
-    double r, g, b;
+    const double* _rgb = (const double*) rgb;
+    uint8 r, g, b;
+    double rl, gl, bl;
     double x, y, z;
     double l, u, v;
     double h, s;
+    const clock_t start = clock(); 
 
     // OpenMP parallel loop.
     // default(none) is used so that all shared and private variables
     // must be marked explicitly
-    #pragma omp parallel \
+//    #pragma omp parallel \
         default(none) \
         shared(rgb, hsl, size) \
-        private(i, r, g, b, x, y, z, l, u, v, h, s)
-{ // begin parallel
-    #pragma omp for schedule(guided)
+        private(i, r, g, b, rl, bl, gl, x, y, z, l, u, v, h, s)
+//    { // begin OMP parallel
+
+//    #pragma omp for schedule(guided)
     for (i = 0; i < size; i+=3) {
-        // to linear RGB
-        r = rgb[i];
-        g = rgb[i+1];
-        b = rgb[i+2];
+        // from RGB
+        r = _rgb[i];
+        g = _rgb[i+1];
+        b = _rgb[i+2];
 
         // process color extremes
         if (!(r || g || b)) {
             // black pixels are {0, 0, 0} in HUSL
             continue;
-        } else if (r == 1 && g == 1 && b == 1) {
+        } else if (r == 255 && g == 255 && b == 255) {
             // white pixels are {19.916, 0, 100} in HUSL
             // the weird 19.916 hue value is not meaningful in a white pixel,
             // but it's helpful to have this for unit testing
@@ -97,13 +101,19 @@ double* rgb_to_husl_nd(double *rgb, int size) {
             continue;
         }
 
-        // to linear RGB -> CIEXYZ
-        to_linear_rgb(&r, &g, &b);
-        to_xyz(r, g, b, &x, &y, &z);
+        // to linear RGB
+        to_linear_rgb(r, g, b, &rl, &gl, &bl);
+
+        // To CIE XYZ
+        to_xyz(rl, gl, bl, &x, &y, &z);
 
         // to CIE LUV
         to_luv(x, y, z, &l, &u, &v);
+        hsl[i] =  l;
+        hsl[i+1] = u;
+        hsl[i+2] = v;
 
+        /*
         // to CIE LCH, then finally to HUSL!
         h = to_hue(u, v);
         s = to_saturation(l, u, v, h);
@@ -112,9 +122,12 @@ double* rgb_to_husl_nd(double *rgb, int size) {
         hsl[i] =  h;
         hsl[i+1] = s;
         hsl[i+2] = l;
+        */
 
     } // end OMP for
-    } // end OMP parallel
+//    } // end OMP parallel
+
+    printf("TIME: %f\n", (double) (clock() - start) / CLOCKS_PER_SEC);
 
     return hsl;
 }
@@ -122,10 +135,11 @@ double* rgb_to_husl_nd(double *rgb, int size) {
 
 // Convert RGB to linear RGB. See Celebi's paper
 // "Fast Color Space Transformations Using Minimax Approximations".
-static inline void to_linear_rgb(double *r, double *g, double *b) {
-    *r = linear_table[(uint8) ((*r)*255)];
-    *g = linear_table[(uint8) ((*g)*255)];
-    *b = linear_table[(uint8) ((*b)*255)];
+static inline void to_linear_rgb(
+        uint8 r, uint8 g, uint8 b, double *rl, double *gl, double *bl) {
+    *rl = linear_table[r];
+    *gl = linear_table[g];
+    *bl = linear_table[b];
 }
 
 
@@ -143,12 +157,13 @@ static inline void to_xyz(double r, double g, double b,
 // Convert CIEXYZ to CIELUV
 static inline void to_luv(double x, double y, double z,
                           double *l, double *u, double *v) {
-    double var_scale = x + 15*y + 3*z;
-    double var_u = 4*x / var_scale;
-    double var_v = 9*y / var_scale;
+    const double var_scale = x + 15*y + 3*z;
+    const double var_u = 4*x / var_scale;
+    const double var_v = 9*y / var_scale;
     *l = to_light(y);
-    *u = (*l)*13 * (var_u - REF_U);
-    *v = (*l)*13 * (var_v - REF_V);
+    const double l13 = (*l)*13;
+    *u = l13*(var_u - REF_U);
+    *v = l13*(var_v - REF_V);
 }
 
 
@@ -301,10 +316,10 @@ static inline double interpolate_light(
 
 #else
 // Return a light value from a CIEXYZ Y-value.
-// Uses an expensive branch/pow().
+// Uses an expensive branch/cube-root.
 static inline double to_light(double y_value) {
     if (y_value > EPSILON) {
-        return 116 * pow((y_value / REF_Y), 1.0 / 3.0) - 16;
+        return 116 * cbrt(y_value / REF_Y) - 16;
     } else {
         return (y_value / REF_Y) * KAPPA;
     }
