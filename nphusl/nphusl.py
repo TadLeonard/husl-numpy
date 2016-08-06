@@ -1,10 +1,12 @@
+
 import math
 import warnings
 
 import numpy as np
+
+from numpy import ndarray
 from . import constants
 from . import transform
-from numpy import ndarray
 
 
 ### The API
@@ -13,24 +15,22 @@ from numpy import ndarray
 
 @transform.handle_rgba
 @transform.handle_grayscale
-@transform.ensure_input_dtype(np.uint8)
 def to_hue(rgb_img: ndarray, chunksize: int = None,
            out: ndarray = None) -> ndarray:
     """Convert an RGB image of integers to a 2D array of HUSL hues"""
     return transform.in_chunks(rgb_img, _rgb_to_hue, chunksize, out)
 
 
-@transform.ensure_output_dtype(nphusl.integer, nphusl.uint8)
-@transform.ensure_input_dtype(nphusl.float64)
+@transform.ensure_int_output
+@transform.ensure_float_input
 def to_rgb(husl_img: ndarray, chunksize: int = None,
            out: ndarray = None) -> ndarray:
     """Convert a 3D HUSL array of floats to a 3D RGB array of integers"""
-    return transform.in_chunks(husl_img, chunksize, out)
+    return transform.in_chunks(husl_img, _husl_to_rgb, chunksize, out)
 
 
 @transform.handle_rgba
 @transform.handle_grayscale
-@transform.ensure_input_dtype(np.uint8)
 def to_husl(rgb_img: ndarray, chunksize: int = None,
             out: ndarray = None) -> ndarray:
     """Convert an RGB image of integers to a 3D array of HSL values"""
@@ -91,13 +91,15 @@ L_MIN =  0.01
 
 
 @optimized
+@transform.ensure_float_input
 def _rgb_to_husl(rgb_nd: ndarray) -> ndarray:
     """Convert a float (0 <= i <= 1.0) RGB image to an `ndarray`
     of HUSL values"""
-    return _lch_to_husl(rgb_to_lch(rgb_nd))
+    return _lch_to_husl(_rgb_to_lch(rgb_nd))
 
 
 @optimized
+@transform.ensure_float_input
 def _rgb_to_hue(rgb: ndarray) -> ndarray:
     """Convenience function to return JUST the HUSL hue values
     for a given RGB image"""
@@ -194,7 +196,8 @@ def _ray_length(theta: ndarray, line: list) -> ndarray:
     return length
 
 
-def rgb_to_lch(rgb: ndarray) -> ndarray:
+@transform.ensure_int_input
+def _rgb_to_lch(rgb: ndarray) -> ndarray:
     return _luv_to_lch(_xyz_to_luv(_rgb_to_xyz(rgb)))
 
 
@@ -226,7 +229,7 @@ def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     V_var[np.isinf(V_var)] = 0  # correct divide by zero
 
     L, U, V = (_channel(luv_flat, n) for n in range(3))
-    L[:] = _f(Y)
+    L[:] = _to_light(Y)
     luv_flat[L == 0] = 0
     U[:] = L * 13 * (U_var - constants.REF_U)
     V[:] = L * 13 * (V_var - constants.REF_V)
@@ -234,13 +237,14 @@ def _xyz_to_luv(xyz_nd: ndarray) -> ndarray:
     return luv_flat.reshape(xyz_nd.shape)
 
 
+@transform.ensure_int_input
 def _rgb_to_xyz(rgb_nd: ndarray) -> ndarray:
     rgbl = _to_linear(rgb_nd)
     return _dot_product(constants.M_INV, rgbl)
 
 
 @optimized
-def _f(y_nd: ndarray) -> ndarray:
+def _to_light(y_nd: ndarray) -> ndarray:
     y_flat = y_nd.flatten()
     f_flat = np.zeros(y_flat.shape, dtype=np.float)
     gt = y_flat > constants.EPSILON
@@ -275,8 +279,8 @@ def _channel(data: ndarray, last_dim_idx) -> ndarray:
 
 ### Conversions in the direction of HUSL -> RGB
 
-
 @optimized
+@transform.ensure_int_output
 def _husl_to_rgb(husl_nd: ndarray) -> ndarray:
     return _lch_to_rgb(_husl_to_lch(husl_nd))
 
@@ -339,7 +343,7 @@ def _luv_to_xyz(luv_nd: ndarray) -> ndarray:
     L, U, V = (_channel(luv_flat, n) for n in range(3))
     X, Y, Z = (_channel(xyz_flat, n) for n in range(3))
 
-    Y_var = _f_inv(L)
+    Y_var = _from_light(L)
     L13 = 13.0 * L
     with np.errstate(divide="ignore", invalid="ignore"):  # ignore divide by zero
         U_var = U / L13 + constants.REF_U
@@ -356,7 +360,7 @@ def _luv_to_xyz(luv_nd: ndarray) -> ndarray:
     return xyz_flat.reshape(luv_nd.shape)
 
 
-def _f_inv(l_nd: ndarray) -> ndarray:
+def _from_light(l_nd: ndarray) -> ndarray:
     l_flat = l_nd.flatten()
     large = l_nd > 8
     small = ~large
