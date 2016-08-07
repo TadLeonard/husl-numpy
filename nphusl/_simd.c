@@ -55,8 +55,10 @@ static const double WHITE_HUE = 19.916405993809086;
 // Converts an array of c-contiguous RGB doubles to an array of c-contiguous
 // HSL doubles. RGB doubles should be in the range [0,1].
 double* rgb_to_husl_nd(uint8 *rgb, int size) {
+//double* rgb_to_husl_nd(uint8 *rgb, int size_strided) {
     // HUSL array of H, S, L triplets to be returned
-    double *hsl = (double*) calloc(size, sizeof(double));
+    double *hsl __attribute__((aligned(0x1000))) = \
+        (double*) calloc(size, sizeof(double));
     if (hsl == NULL) {
         fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
         exit(EXIT_FAILURE);
@@ -76,7 +78,7 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
         private(i, rl, bl, gl, x, y, z, l, u, v)
     { // begin OMP parallel
 
-    #pragma omp for simd schedule(static)
+    #pragma omp for schedule(static)
     for (i = 0; i < size; i+=3) {
         // from RGB
         const uint8 r = rgb[i];
@@ -123,10 +125,9 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
 }
 
 
-// Convert RGB to linear RGB. See Celebi's paper
-// "Fast Color Space Transformations Using Minimax Approximations".
-static inline void to_linear_rgb(
-        uint8 r, uint8 g, uint8 b, double *rl, double *gl, double *bl) {
+// Convert RGB to linear RGB.
+static inline void to_linear_rgb(uint8 r, uint8 g, uint8 b,
+                                 double *rl, double *gl, double *bl) {
     *rl = linear_table[r];
     *gl = linear_table[g];
     *bl = linear_table[b];
@@ -136,6 +137,8 @@ static inline void to_linear_rgb(
 // Convert linear RGB to CIE XYZ space. See Celebi et al.
 // Note that this is somewhat different than the husl.py reference
 // implementation by Boronine, the creator of HUSL.
+// See Celebi's paper "Fast Color Space
+// Transformations Using Minimax Approximations".
 static inline void to_xyz(double r, double g, double b,
                           double *x, double *y, double *z) {
     *x = 0.412391*r + 0.357584*g + 0.180481*b;
