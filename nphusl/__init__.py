@@ -7,7 +7,7 @@ The basics:
 * to_hue(rgb): Convert RGB integer array or grayscale float array to array of hue values
 """
 
-__version__ = "1.4.1"
+__version__ = "1.5.0"
 
 from contextlib import contextmanager
 from functools import partial
@@ -31,7 +31,6 @@ except ImportError:
 
 
 def enable_best_optimized():
-    print("BEST OPT")
     order = SIMD, CYTHON, NUMEXPR, STANDARD
     for name, fn in STANDARD.items():
         fns = (fn_map.get(name) for fn_map in order)
@@ -41,8 +40,8 @@ def enable_best_optimized():
 
 @contextmanager
 def _with_fns(enable_other_fns, back_to_std=False):
-    enable_other_fns()
     revert = enable_standard if back_to_std else enable_best_optimized
+    enable_other_fns()
     try:
         yield
     finally:
@@ -64,7 +63,6 @@ def _set_module_globals(fn_dictionary):
 def _select_fn(fn, name):
     globals()[name] = fn
     setattr(nphusl, name, fn)
-
 
 
 enable_standard = partial(_enable_fns, STANDARD)

@@ -9,7 +9,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
  
 #include <omp.h>
 #include <_simd.h>
@@ -64,33 +63,30 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
     }
 
     int i;
-    const double* _rgb = (const double*) rgb;
-    uint8 r, g, b;
     double rl, gl, bl;
     double x, y, z;
     double l, u, v;
-    double h, s;
-    const clock_t start = clock(); 
 
     // OpenMP parallel loop.
     // default(none) is used so that all shared and private variables
     // must be marked explicitly
-//    #pragma omp parallel \
+    #pragma omp parallel \
         default(none) \
         shared(rgb, hsl, size) \
-        private(i, r, g, b, rl, bl, gl, x, y, z, l, u, v, h, s)
-//    { // begin OMP parallel
+        private(i, rl, bl, gl, x, y, z, l, u, v)
+    { // begin OMP parallel
 
-//    #pragma omp for schedule(guided)
+    #pragma omp for simd schedule(static)
     for (i = 0; i < size; i+=3) {
         // from RGB
-        r = _rgb[i];
-        g = _rgb[i+1];
-        b = _rgb[i+2];
+        const uint8 r = rgb[i];
+        const uint8 g = rgb[i+1];
+        const uint8 b = rgb[i+2];
 
         // process color extremes
         if (!(r || g || b)) {
             // black pixels are {0, 0, 0} in HUSL
+            //hsl_ptr += 3;
             continue;
         } else if (r == 255 && g == 255 && b == 255) {
             // white pixels are {19.916, 0, 100} in HUSL
@@ -109,25 +105,19 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
 
         // to CIE LUV
         to_luv(x, y, z, &l, &u, &v);
-        hsl[i] =  l;
-        hsl[i+1] = u;
-        hsl[i+2] = v;
 
-        /*
         // to CIE LCH, then finally to HUSL!
-        h = to_hue(u, v);
-        s = to_saturation(l, u, v, h);
+        // TWO THIRD$ of our CPU cycles are spent calculating H and S!!
+        const double h = to_hue(u, v);
+        const double s = to_saturation(l, u, v, h);
 
         // Overwrite the calloc'd zeros in HUSL array
-        hsl[i] =  h;
+        hsl[i] = h;
         hsl[i+1] = s;
         hsl[i+2] = l;
-        */
 
     } // end OMP for
-//    } // end OMP parallel
-
-    printf("TIME: %f\n", (double) (clock() - start) / CLOCKS_PER_SEC);
+    } // end OMP parallel
 
     return hsl;
 }
