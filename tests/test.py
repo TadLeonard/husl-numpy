@@ -59,13 +59,11 @@ def try_optimizations(*opts):
 
 @try_optimizations()
 def test_to_husl_2d():
-    img = _img()[:, 0]
+    img = np.ascontiguousarray(_img()[:, 22])
     float_img = transform.ensure_rgb_float(img)
-    rgb_arr = np.ascontiguousarray(img  * 255)
-    husl_new = nphusl.to_husl(rgb_arr)
-    assert husl_new.shape == rgb_arr.shape
-    for row in range(rgb_arr.shape[0]):
-        husl_old = _ref_to_husl(float_img[row])
+    husl_new = nphusl.to_husl(img)
+    for row in range(img.shape[0]):
+        husl_old = husl.rgb_to_husl(*float_img[row])
         assert _diff_husl(husl_new[row], husl_old)
 
 
@@ -145,10 +143,11 @@ def test_rgb_to_husl():
 @try_optimizations()
 def test_rgb_to_husl_3d():
     rgb_arr = np.ascontiguousarray(_img()[:5, :5])
+    float_arr = transform.ensure_rgb_float(rgb_arr)
     husl_new = _nphusl._rgb_to_husl(rgb_arr)
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
-            husl_old = _ref_to_husl(rgb_arr[row][col])
+            husl_old = husl.rgb_to_husl(*float_arr[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
