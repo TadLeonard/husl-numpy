@@ -69,6 +69,13 @@ def test_perf_rgb_to_husl(impls, iters, img):
     _test_all(fn, "img.rgb", locals(), impls, iters)
 
 
+def test_perf_rgb_to_husl_one_triplet(impls, iters):
+    fn = "nphusl.to_husl"
+    rgb_triplet = (np.random.rand(3) * 255).astype(np.uint8)
+    rgb_triplet = list(rgb_triplet)
+    _test_all(fn , str(rgb_triplet), locals(), impls, iters)
+
+
 def test_perf_rgb_to_hue(impls, iters, img):
     fn = "nphusl.to_hue"
     _test_all(fn, "img.rgb", locals(), impls, iters)
