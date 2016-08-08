@@ -13,6 +13,7 @@ from . import transform
 ### From RGB: to_husl, to_hue
 ### From HUSL: to_rgb
 
+@transform.ensure_numpy_input
 @transform.handle_rgba
 @transform.handle_grayscale
 def to_hue(rgb_img: ndarray, chunksize: int = None,
@@ -21,6 +22,7 @@ def to_hue(rgb_img: ndarray, chunksize: int = None,
     return transform.in_chunks(rgb_img, _rgb_to_hue, chunksize, out)
 
 
+@transform.ensure_numpy_input
 @transform.rgb_int_output
 def to_rgb(husl_img: ndarray, chunksize: int = None,
            out: ndarray = None) -> ndarray:
@@ -28,6 +30,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = None,
     return transform.in_chunks(husl_img, _husl_to_rgb, chunksize, out)
 
 
+@transform.ensure_numpy_input
 @transform.handle_rgba
 @transform.handle_grayscale
 def to_husl(rgb_img: ndarray, chunksize: int = None,
@@ -207,12 +210,21 @@ def _luv_to_lch(luv_nd: ndarray) -> ndarray:
     uv_nd = _channel(luv_nd, slice(1, 2))
     uv_nd[uv_nd == -0.0] = 0.0   # -0.0 screws up atan2
     lch_nd = luv_nd.copy()
+    L = luv_nd[..., 0]
     U, V = (_channel(luv_nd, n) for n in range(1, 3))
     C, H = (_channel(lch_nd, n) for n in range(1, 3))
-    C[:] = (U ** 2 + V ** 2) ** 0.5
+    C = (U**2 + V**2)**0.5
     hrad = np.arctan2(V, U)
-    H[:] = np.degrees(hrad)
-    H[H < 0.0] += 360.0
+    H = np.degrees(hrad)
+    if C.ndim == 0:
+        if H < 0.0:
+            H += 360
+        lch_nd[:] = L, C, H
+    else:
+        H[H < 0.0] += 360.0
+        lch_nd[..., 0] = L
+        lch_nd[..., 1] = C
+        lch_nd[..., 2] = H
     return lch_nd
 
 
