@@ -16,6 +16,9 @@
 #include <_scale_const.h>
 
 
+#define MIN_IMG_SIZE_THREADED 50*50*3
+
+
 static double max_chroma(double, double);
 static void to_linear_rgb(uint8 r, uint8 g, uint8 b,
                           double *rl, double *gl, double *bl);
@@ -65,7 +68,8 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
     // OpenMP parallel loop. Default(none) is used so that all shared
     //and private variables must be marked explicitly.
     #pragma omp parallel \
-        default(none) shared(rgb, hsl, size)
+        default(none) shared(rgb, hsl, size) \
+        if (size >= MIN_IMG_SIZE_THREADED)
     { // begin OMP parallel
 
     #pragma omp for schedule(static)
