@@ -17,7 +17,6 @@
 
 
 static double max_chroma(double, double);
-//static void to_linear_rgb(double *r, double *g, double *b);
 static void to_linear_rgb(uint8 r, uint8 g, uint8 b,
                           double *rl, double *gl, double *bl);
 static void to_xyz(double r, double g, double b,
@@ -55,7 +54,6 @@ static const double WHITE_HUE = 19.916405993809086;
 // Converts an array of c-contiguous RGB doubles to an array of c-contiguous
 // HSL doubles. RGB doubles should be in the range [0,1].
 double* rgb_to_husl_nd(uint8 *rgb, int size) {
-//double* rgb_to_husl_nd(uint8 *rgb, int size_strided) {
     // HUSL array of H, S, L triplets to be returned
     double *hsl __attribute__((aligned(0x1000))) = \
         (double*) calloc(size, sizeof(double));
@@ -64,40 +62,39 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
         exit(EXIT_FAILURE);
     }
 
-    int i;
-    double rl, gl, bl;
-    double x, y, z;
-    double l, u, v;
-
-    // OpenMP parallel loop.
-    // default(none) is used so that all shared and private variables
-    // must be marked explicitly
+    // OpenMP parallel loop. Default(none) is used so that all shared
+    //and private variables must be marked explicitly.
     #pragma omp parallel \
-        default(none) \
-        shared(rgb, hsl, size) \
-        private(i, rl, bl, gl, x, y, z, l, u, v)
+        default(none) shared(rgb, hsl, size)
     { // begin OMP parallel
 
     #pragma omp for schedule(static)
-    for (i = 0; i < size; i+=3) {
+    for (int i = 0; i < size; i+=3) {
         // from RGB
         const uint8 r = rgb[i];
         const uint8 g = rgb[i+1];
         const uint8 b = rgb[i+2];
 
         // process color extremes
+        /*
         if (!(r || g || b)) {
             // black pixels are {0, 0, 0} in HUSL
-            //hsl_ptr += 3;
+            // calloc'd zeros remain for H, s, and L
             continue;
         } else if (r == 255 && g == 255 && b == 255) {
             // white pixels are {19.916, 0, 100} in HUSL
             // the weird 19.916 hue value is not meaningful in a white pixel,
             // but it's helpful to have this for unit testing
             hsl[i] = WHITE_HUE;
+            // calloc'd remains zero for saturation value
             hsl[i+2] = WHITE_LIGHTNESS;
             continue;
         }
+        */
+
+        double rl, gl, bl;
+        double x, y, z;
+        double l, u, v;
 
         // to linear RGB
         to_linear_rgb(r, g, b, &rl, &gl, &bl);
