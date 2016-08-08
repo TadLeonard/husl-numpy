@@ -38,13 +38,15 @@ def to_dtype(exact_dtype, arr: ndarray):
 class Dtype(type_tuple, Enum):
     int = type_tuple(np.integer, np.uint8, to_dtype)
     float = type_tuple(np.float, np.float64, to_dtype)
-    rgb_int = type_tuple(np.integer, np.uint8, to_rgb_int)
+    rgb_int = type_tuple(np.uint8, np.uint8, to_rgb_int)
     rgb_float = type_tuple(np.float, np.float64, to_rgb_float)
 
 
 def ensure_dtype(dtype: Dtype, arr: ndarray):
     if not np.issubdtype(arr.dtype, dtype.base):
         arr = dtype.convert(dtype.exact, arr)
+        if arr.ndim == 1:
+            arr = arr.reshape(arr.size/3, 3)
     return arr
 
 
@@ -89,6 +91,16 @@ int_output = ensure_output_dtype(Dtype.int)
 float_output = ensure_output_dtype(Dtype.float)
 rgb_int_output = ensure_output_dtype(Dtype.rgb_int)
 rgb_float_output = ensure_output_dtype(Dtype.rgb_float)
+
+
+def ensure_numpy_input(fn):
+    """Ensures that we're working with an np.ndarray"""
+    @wraps(fn)
+    def wrapped(arr: ndarray, *args, **kwargs):
+        if not isinstance(arr, (np.ndarray, np.generic)):
+            arr = np.ascontiguousarray(arr)
+        return fn(arr, *args, **kwargs)
+    return wrapped
 
 
 def handle_grayscale(fn):
