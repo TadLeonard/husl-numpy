@@ -1,5 +1,5 @@
-"""Convenience functions/decorators for handling the
-shape and dtypes of image inputs and outputs"""
+"""Convenience functions and decorators for handling the
+shape and dtypes of image array inputs and outputs"""
 
 import warnings
 from functools import wraps, partial
@@ -10,15 +10,21 @@ import numpy as np
 from numpy import ndarray
 
 
-type_tuple = namedtuple("type_tuple", "base exact convert")
+type_tuple = namedtuple("type_tuple", "base exact convert exact_required")
 
 
-def to_rgb_int(exact_dtype, arr: ndarray):
-    return to_dtype(exact_dtype, scale_up_rgb(arr))
+def to_rgb_int(dtype, arr: ndarray):
+    if not np.issubdtype(arr.dtype, dtype.base):
+        # scale float arrays in interval [0,1] to [0,255]
+        arr = scale_up_rgb(arr)
+    return to_dtype(dtype.exact, arr)
 
 
-def to_rgb_float(exact_dtype, arr: ndarray):
-    return to_dtype(exact_dtype, scale_down_rgb(arr))
+def to_rgb_float(dtype, arr: ndarray):
+    if not np.issubdtype(arr.dtype, dtype.base):
+        # scale int arrays in interval [0,255] to [0,1]
+        arr = scale_down_rgb(arr)
+    return to_dtype(dtype.exact, arr)
 
 
 def scale_up_rgb(rgb: ndarray):
@@ -35,18 +41,23 @@ def to_dtype(exact_dtype, arr: ndarray):
     return arr.astype(exact_dtype)
 
 
+_int_type = type_tuple(np.integer, np.uint8, to_dtype, False)
+_float_type = type_tuple(np.float, np.float64, to_dtype, False)
+_rgb_int_type = type_tuple(np.integer, np.uint8, to_rgb_int, True)
+_rgb_float_type = type_tuple(np.float, np.float64, to_rgb_float, True)
+
+
 class Dtype(type_tuple, Enum):
-    int = type_tuple(np.integer, np.uint8, to_dtype)
-    float = type_tuple(np.float, np.float64, to_dtype)
-    rgb_int = type_tuple(np.uint8, np.uint8, to_rgb_int)
-    rgb_float = type_tuple(np.float, np.float64, to_rgb_float)
+    int = _int_type
+    float = _float_type
+    rgb_int = _rgb_int_type
+    rgb_float = _rgb_float_type
 
 
 def ensure_dtype(dtype: Dtype, arr: ndarray):
-    if not np.issubdtype(arr.dtype, dtype.base):
-        arr = dtype.convert(dtype.exact, arr)
-        if arr.ndim == 1:
-            arr = arr.reshape(arr.size/3, 3)
+    required_type = dtype.exact if dtype.exact_required else dtype.base
+    if not np.issubdtype(arr.dtype, required_type):
+        arr = dtype.convert(dtype, arr)
     return arr
 
 
@@ -94,11 +105,22 @@ rgb_float_output = ensure_output_dtype(Dtype.rgb_float)
 
 
 def ensure_numpy_input(fn):
-    """Ensures that we're working with an np.ndarray"""
+    """Ensures that we're working with an np.ndarray
+    with at least two dimensions"""
     @wraps(fn)
     def wrapped(arr: ndarray, *args, **kwargs):
         if not isinstance(arr, (np.ndarray, np.generic)):
             arr = np.ascontiguousarray(arr)
+        if arr.ndim == 1:
+            size = arr.size
+            if size in (3, 4):
+                # force [r, g, b] to [[r, g, b]]
+                # or [r, g, b, a] to [[r, g, b, a]]
+                arr = arr[None, :]
+            else:
+                # force [r, g, b, r, g, b, ...] to [[r, g, b], ...]
+                # assumes an array of triplets (no RGBA allowed)
+                arr = arr.reshape((int(size/3), 3))
         return fn(arr, *args, **kwargs)
     return wrapped
 
