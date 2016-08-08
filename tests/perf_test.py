@@ -1,13 +1,16 @@
 import sys
 import timeit
 
+from collections import defaultdict
+
+import imageio
 import pytest
 import numpy as np
 import nphusl
 import husl
 
 
-default_impls = "simd cython numexpr standard".split()
+default_impls = "simd cython numexpr numpy".split()
 
 
 @pytest.fixture
@@ -17,34 +20,56 @@ def impls(request):
     return methods
 
 
-def _test_all(fn, arg, env, impls):
+@pytest.fixture
+def iters(request):
+    return request.config.getoption("--iters")
+
+
+class CachedImg:
+    rgb = None
+    hsl = None
+
+
+@pytest.fixture
+def img(request):
+    if CachedImg.rgb is None:
+        path = request.config.getoption("--img")
+        CachedImg.rgb = imageio.imread(path)
+        CachedImg.hsl = nphusl.to_husl(CachedImg.rgb)
+    return CachedImg
+
+
+def _test_all(fn, arg, env, impls, iters):
     env = {**globals(), **env}
-    print("\n\n{}({}) ====".format(fn, arg))
+    print("\n\n{}({})".format(fn, arg))
+    times = {}
     for impl in impls:
         enable = getattr(nphusl, "{}_enabled".format(impl))
         with enable():
-            t = timeit.timeit("{}({})".format(fn, arg), number=1, globals=env)
+            runs = timeit.repeat("{}({})".format(fn, arg),
+                                 repeat=iters, number=1, globals=env)
+        times[impl] = min(runs)
+    worst = max(times.values())
+    sorted_times = sorted(times.items(), key=lambda x: x[1])
+    for impl, best in sorted_times:
         spaces = len("standard") - len(impl)
-        print("  {}: {}{:0.4f}".format(impl, " "*spaces, t))
+        chart_bar = "|" * int(40*best/worst)
+        print("  {}: {}{:7.4f}   {}".format(
+              impl, " "*spaces, best, chart_bar))
     print()
 
 
-def test_perf_husl_to_rgb(impls):
-    hsl = np.random.rand(1920, 1080, 3) * 100
+def test_perf_husl_to_rgb(impls, iters, img):
     fn = "nphusl.to_rgb"
-    _test_all(fn, "hsl", locals(), impls)
+    _test_all(fn, "img.hsl", locals(), impls, iters)
 
 
-def test_perf_rgb_to_husl(impls):
-    rgb = (np.random.rand(1920, 1080, 3) * 255).astype(np.uint8)
-    rgb[30:40] = 0
-    rgb[40:50] = 255
+def test_perf_rgb_to_husl(impls, iters, img):
     fn = "nphusl.to_husl"
-    _test_all(fn, "rgb", locals(), impls)
+    _test_all(fn, "img.rgb", locals(), impls, iters)
 
 
-def test_perf_rgb_to_hue(impls):
-    rgb = np.random.rand(1920, 1080, 3)
+def test_perf_rgb_to_hue(impls, iters, img):
     fn = "nphusl.to_hue"
-    _test_all(fn, "rgb", locals(), impls)
+    _test_all(fn, "img.rgb", locals(), impls, iters)
 
