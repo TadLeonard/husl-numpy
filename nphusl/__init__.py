@@ -31,8 +31,8 @@ except ImportError:
 
 
 def enable_best_optimized():
-    order = SIMD, CYTHON, NUMEXPR, STANDARD
-    for name, fn in STANDARD.items():
+    order = SIMD, CYTHON, NUMEXPR, NUMPY
+    for name, fn in NUMPY.items():
         fns = (fn_map.get(name) for fn_map in order)
         chosen_fn = next(f for f in fns if f)
         _select_fn(chosen_fn, name)
@@ -40,7 +40,7 @@ def enable_best_optimized():
 
 @contextmanager
 def _with_fns(enable_other_fns, back_to_std=False):
-    revert = enable_standard if back_to_std else enable_best_optimized
+    revert = enable_numpy if back_to_std else enable_best_optimized
     enable_other_fns()
     try:
         yield
@@ -49,7 +49,7 @@ def _with_fns(enable_other_fns, back_to_std=False):
 
 
 def _enable_fns(fn_dictionary=None):
-    _set_module_globals(STANDARD)
+    _set_module_globals(NUMPY)
     if fn_dictionary:
         _set_module_globals(fn_dictionary)
 
@@ -65,11 +65,11 @@ def _select_fn(fn, name):
     setattr(nphusl, name, fn)
 
 
-enable_standard = partial(_enable_fns, STANDARD)
+enable_numpy = partial(_enable_fns, NUMPY)
 enable_cython = partial(_enable_fns, CYTHON)
 enable_numexpr = partial(_enable_fns, NUMEXPR)
 enable_simd = partial(_enable_fns, SIMD)
-standard_enabled = partial(_with_fns, enable_standard)
+numpy_enabled = partial(_with_fns, enable_numpy)
 cython_enabled = partial(_with_fns, enable_cython)
 numexpr_enabled = partial(_with_fns, enable_numexpr)
 simd_enabled = partial(_with_fns, enable_simd)

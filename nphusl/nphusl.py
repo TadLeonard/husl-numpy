@@ -57,7 +57,7 @@ except ImportError as e:
 _NUMEXPR_ENABLED = True
 _CYTHON_ENABLED = True
 _SIMD_ENABLED = True
-STANDARD = {}  # normal cpython/numpy fns
+NUMPY = {}  # normal cpython/numpy fns
 NUMEXPR = {}  # numexpr fns
 CYTHON = {}  # cython extension fns
 SIMD = {}  # cython-wrapped C SIMD parallelization
@@ -68,7 +68,7 @@ def optimized(fn):
     Registers the function in optimization dictionaries and chooses
     the fastest available implementation. Alternate implementations can
     be enabled by the user at runtime (e.g. for unit testing)."""
-    STANDARD[fn.__name__] = fn
+    NUMPY[fn.__name__] = fn
     expr_fn = getattr(expr, fn.__name__, None) if _NUMEXPR_ENABLED else None
     cython_fn = getattr(cyth, fn.__name__, None) if _CYTHON_ENABLED else None
     simd_fn = getattr(simd, fn.__name__, None) if _SIMD_ENABLED else None
