@@ -88,6 +88,7 @@ cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
 simd_compile_args = [
      "-ftree-vectorize",
      "-ftree-vectorizer-verbose=2",
+     "-std=c99",
 ] + cython_compile_args
 if not NO_LIGHT_LUT:
     simd_compile_args.append("-DUSE_LIGHT_LUT")
@@ -111,7 +112,7 @@ simd_ext = Extension("nphusl._simd_opt",
                               "nphusl/_chroma_lookup.c",],
                      extra_compile_args=simd_compile_args,
                      include_dirs=["nphusl/"],
-                     extra_link_args=["-fopenmp",])
+                     extra_link_args=["-fopenmp"])
 
 if not NO_CYTHON_EXT:
     extensions.append(cython_ext)
