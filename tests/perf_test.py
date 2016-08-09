@@ -41,7 +41,7 @@ def img(request):
 
 def _test_all(fn, arg, env, impls, iters):
     env = {**globals(), **env}
-    print("\n\n{}({})".format(fn, arg))
+    print("\n\n{}({}) -- best of {}".format(fn, arg, iters))
     times = {}
     for impl in impls:
         enable = getattr(nphusl, "{}_enabled".format(impl))
@@ -50,12 +50,18 @@ def _test_all(fn, arg, env, impls, iters):
                                  repeat=iters, number=1, globals=env)
         times[impl] = min(runs)
     worst = max(times.values())
+    very_best = min(times.values())
     sorted_times = sorted(times.items(), key=lambda x: x[1])
     for impl, best in sorted_times:
         spaces = len("standard") - len(impl)
         chart_bar = "|" * int(40*best/worst)
-        print("  {}: {}{:7.4f}   {}".format(
-              impl, " "*spaces, best, chart_bar))
+        tformat = "{:10.4e} s" if very_best < 0.001 else "{:10.4f}"
+        times_slower = best/very_best
+        slower = "fastest" if times_slower == 1 else \
+                 "{:0.2f}x slower".format(times_slower)
+        t = tformat.format(best)
+        print("  {}: {}{}   {} ({})".format(
+              impl, " "*spaces, t, chart_bar, slower))
     print()
 
 
@@ -73,7 +79,7 @@ def test_perf_rgb_to_husl_one_triplet(impls, iters):
     fn = "nphusl.to_husl"
     rgb_triplet = (np.random.rand(3) * 255).astype(np.uint8)
     rgb_triplet = list(rgb_triplet)
-    _test_all(fn , str(rgb_triplet), locals(), impls, iters)
+    _test_all(fn , "rgb_triplet", locals(), impls, iters)
 
 
 def test_perf_rgb_to_hue(impls, iters, img):
