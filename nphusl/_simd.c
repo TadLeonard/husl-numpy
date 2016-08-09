@@ -9,6 +9,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
  
 #include <omp.h>
 #include <_simd.h>
@@ -16,11 +17,16 @@
 #include <_scale_const.h>
 
 
-#define MIN_IMG_SIZE_THREADED 50*50*3
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#define MIN_IMG_SIZE_THREADED 30*30*3  // min array size for OpenMP threads
 
 
-static double max_chroma(double, double);
-static void to_linear_rgb(uint8 r, uint8 g, uint8 b,
+double *rgb_to_husl_triplet(uint8_t r, uint8_t g, uint8_t b);
+static double *allocate_hsl(size_t size);
+static void to_linear_rgb(uint8_t r, uint8_t g, uint8_t b,
                           double *rl, double *gl, double *bl);
 static void to_xyz(double r, double g, double b,
                    double *x, double *y, double *z);
@@ -29,15 +35,18 @@ static void to_luv(double x, double y, double z,
 static double to_light(double);
 static double to_hue(double u, double v);
 static double to_saturation(double, double, double, double);
+static double max_chroma(double, double);
 static double atan2_approx(double, double);
 
 
+// Enable luminance lookup interpolation based on compile flag
 #if defined(USE_LIGHT_LUT)
 #include <_light_lookup.h>
 static double interpolate_light(double, double, double);
 #endif
 
 
+// Choose LUV -> LCH croma function based on compile flag
 #if defined(USE_CHROMA_LUT)
 #include <_chroma_lookup.h>
 static double interpolate_chroma(double, double, double);
@@ -48,77 +57,73 @@ static double min_chroma_length(
 #endif
 
 
-// Constants for (1, 1, 1) pixels
-static const double WHITE_LIGHTNESS = 100.0;
+// Constants for white pixels
 static const double WHITE_HUE = 19.916405993809086;
+static const double WHITE_SATURATION = 0.0;
+static const double WHITE_LIGHTNESS = 100.0;
 
 
 // RGB -> HUSL conversion
-// Converts an array of c-contiguous RGB doubles to an array of c-contiguous
-// HSL doubles. RGB doubles should be in the range [0,1].
-double* rgb_to_husl_nd(uint8 *rgb, int size) {
+// Converts an array of c-contiguous RGB ints to an array of c-contiguous
+// HSL doubles. RGB ints should be in the interval [0, 255]
+double* rgb_to_husl_nd(uint8_t *rgb, size_t size) {
     // HUSL array of H, S, L triplets to be returned
-    double *hsl __attribute__((aligned(0x1000))) = \
-        (double*) calloc(size, sizeof(double));
-    if (hsl == NULL) {
-        fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
-        exit(EXIT_FAILURE);
-    }
+    double *hsl = allocate_hsl(size);
 
-    // OpenMP parallel loop. Default(none) is used so that all shared
-    //and private variables must be marked explicitly.
     #pragma omp parallel \
         default(none) shared(rgb, hsl, size) \
         if (size >= MIN_IMG_SIZE_THREADED)
     { // begin OMP parallel
 
-    #pragma omp for schedule(static)
-    for (int i = 0; i < size; i+=3) {
-        // from RGB
-        const uint8 r = rgb[i];
-        const uint8 g = rgb[i+1];
-        const uint8 b = rgb[i+2];
+    double *hsl_p;
+    uint8_t *rgb_p;
 
-        // process color extremes
-        /*
-        if (!(r || g || b)) {
-            // black pixels are {0, 0, 0} in HUSL
-            // calloc'd zeros remain for H, s, and L
-            continue;
-        } else if (r == 255 && g == 255 && b == 255) {
-            // white pixels are {19.916, 0, 100} in HUSL
-            // the weird 19.916 hue value is not meaningful in a white pixel,
-            // but it's helpful to have this for unit testing
-            hsl[i] = WHITE_HUE;
-            // calloc'd remains zero for saturation value
-            hsl[i+2] = WHITE_LIGHTNESS;
-            continue;
-        }
-        */
+    #pragma omp for schedule(static)
+    for (unsigned int i = 0; i < size; i+=3) { 
+        hsl_p = hsl + i;
+        rgb_p = rgb + i;
+        const uint8_t r = *(rgb_p);
+        const uint8_t g = *(++rgb_p);
+        const uint8_t b = *(++rgb_p);
 
         double rl, gl, bl;
         double x, y, z;
         double l, u, v;
 
-        // to linear RGB
+        // from RGB in [0, 255] to RGB-linear in [0,1]
+        // to CIE-XYZ to CIE-LUV
         to_linear_rgb(r, g, b, &rl, &gl, &bl);
-
-        // To CIE XYZ
         to_xyz(rl, gl, bl, &x, &y, &z);
-
-        // to CIE LUV
         to_luv(x, y, z, &l, &u, &v);
 
-        // to CIE LCH, then finally to HUSL!
-        // TWO THIRD$ of our CPU cycles are spent calculating H and S!!
+        // To CIE-LCH, then to HUSL. ~70% of CPU cycles spent here!
         const double h = to_hue(u, v);
         const double s = to_saturation(l, u, v, h);
+        *(hsl_p) = h;
+        *(++hsl_p) = s;
+        *(++hsl_p) = l;
+    } // end OMP for
 
-        // Overwrite the calloc'd zeros in HUSL array
-        hsl[i] = h;
-        hsl[i+1] = s;
-        hsl[i+2] = l;
+    #pragma omp barrier
+    #pragma omp for schedule(guided)
+    for (unsigned int i = 0; i < size; i+=3) {
+        hsl_p = hsl + i;
+        rgb_p = rgb + i;
 
+        const uint_fast8_t r = *rgb_p;
+        const uint_fast8_t g = *(++rgb_p);
+        const uint_fast8_t b = *(++rgb_p);
+        const uint_fast32_t rgb24 = (b << 16) | (g << 8) | r;
+
+        if (rgb24 == 0xFFFFFF) {
+            *(hsl_p) = WHITE_HUE;
+            *(++hsl_p) = WHITE_SATURATION;
+            *(++hsl_p) = WHITE_LIGHTNESS;
+        } else if (!rgb24) {
+            *(hsl_p) = 0;
+            *(++hsl_p) = 0;
+            *(++hsl_p) = 0;
+        }
     } // end OMP for
     } // end OMP parallel
 
@@ -126,8 +131,48 @@ double* rgb_to_husl_nd(uint8 *rgb, int size) {
 }
 
 
+// Aligned malloc for HUSL double arrays
+static double* allocate_hsl(size_t size) {
+    double *hsl __attribute__((aligned(0x1000))) = \
+        (double*) malloc(size*sizeof(double));
+    if (hsl == NULL) {
+        fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
+        exit(EXIT_FAILURE);
+    }
+    return hsl;
+}
+
+
+// RGB -> HUSL conversion for a single RGB triplet
+// This is just an optimization. The full ND-array fn could be used.
+double* rgb_to_husl_triplet(uint8_t r, uint8_t g, uint8_t b) {
+    double *hsl = (double*) malloc(3*sizeof(double));
+    double h, s, l;
+    if (!r && !g && !b) {
+        h = s = l = 0;
+    } else if (r == 255 && g == 255 && b == 255) {
+        h = WHITE_HUE;
+        s = WHITE_SATURATION;
+        l = WHITE_LIGHTNESS;
+    } else {
+        double rl, gl, bl;
+        double x, y, z;
+        double u, v;
+        to_linear_rgb(r, g, b, &rl, &gl, &bl);
+        to_xyz(rl, gl, bl, &x, &y, &z);
+        to_luv(x, y, z, &l, &u, &v);
+        h = to_hue(u, v);
+        s = to_saturation(l, u, v, h);
+    }
+    hsl[0] = h;
+    hsl[1] = s;
+    hsl[2] = l;
+    return hsl;
+}
+
+
 // Convert RGB to linear RGB.
-static inline void to_linear_rgb(uint8 r, uint8 g, uint8 b,
+static inline void to_linear_rgb(uint8_t r, uint8_t g, uint8_t b,
                                  double *rl, double *gl, double *bl) {
     *rl = linear_table[r];
     *gl = linear_table[g];
@@ -220,11 +265,13 @@ static inline double max_chroma(double lightness, double hue) {
     return interp;
 } 
 
+
 static inline double interpolate_chroma(
         double val_1, double val_2, double delta_idx) {
     double val_lo = fmin(val_1, val_2);
     return val_lo + delta_idx*(fabs(val_2 - val_2));
 }
+
 
 #else
 // Returns max chroma given an L, H pair.
