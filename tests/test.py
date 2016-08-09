@@ -1,5 +1,6 @@
 import argparse
 import sys
+import functools
 
 import imread
 import numpy as np
@@ -13,6 +14,9 @@ import husl  # the original husl-colors.org library
 from enum import Enum
 
 
+np.set_printoptions(threshold=np.inf)
+
+
 ### Tests for conversion in the RGB -> HUSL direction
 
 
@@ -22,12 +26,17 @@ class Opt(str, Enum):
     numexpr = "numexpr"
 
 
+_optimized = set()
+
+
 def try_optimizations(*opts):
     opts = opts or (Opt.cython, Opt.simd, Opt.numexpr)
 
     def wrapped(fn):
+        _optimized.add(fn.__name__)
+
         def with_numpy(*args, **kwargs):
-            with nphusl.standard_enabled(back_to_std=True):
+            with nphusl.numpy_enabled(back_to_std=True):
                 fn(*args, **kwargs)
 
         def with_expr(*args, **kwargs):
@@ -46,14 +55,14 @@ def try_optimizations(*opts):
                 fn(*args, **kwargs)
 
         globals()[fn.__name__ + "__with_numpy"] = with_numpy
-
         if Opt.numexpr in opts:
             globals()[fn.__name__ + "__with_numexpr"] = with_expr
         if Opt.cython in opts:
             globals()[fn.__name__ + "__with_cython"] = with_cyth
         if Opt.simd in opts:
             globals()[fn.__name__ + "__with_simd"] = with_simd
-        return fn
+
+        return with_numpy
     return wrapped
 
 
@@ -94,14 +103,19 @@ def test_to_husl_gray():
 @try_optimizations()
 def test_to_husl_gray_3d():
     img = _img()
-    img[..., 1] = img[..., 0]
-    img[..., 2] = img[..., 0]
-    rgb_arr = img[..., 0] * 255  # single channel
-    rgb_arr = rgb_arr.reshape(rgb_arr.shape + (1,))
-    husl_new = nphusl.to_husl(rgb_arr)
-    for row in range(rgb_arr.shape[0]):
-        for col in range(rgb_arr.shape[1]):
-            husl_old = _ref_to_husl(img[row, col])
+    img[..., 1] = img[..., 0]  # makes things gray
+    img[..., 2] = img[..., 0]  # makes things gray
+    img_float = transform.ensure_rgb_float(img)
+    husl_new = nphusl.to_husl(img)
+    was_wrong = False
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            husl_old = husl.rgb_to_husl(*img_float[row, col])
+            a = husl.husl_to_rgb(*husl_old)
+            b = husl.husl_to_rgb(*husl_new[row, col])
+            a = np.asarray(a)
+            b = np.asarray(b)
+            i = row*img.shape[1]*3 + col*3
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
@@ -331,7 +345,6 @@ def test_dot():
         _check_dot(arr)
 
 
-@try_optimizations(Opt.numexpr)
 def _check_dot(test_array):
     m_inv = husl.m_inv
     new_dot = _nphusl._dot_product(m_inv, test_array)
@@ -364,9 +377,9 @@ def test_to_rgb_3d():
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_rgb_2d():
     img = np.ascontiguousarray(_img()[:, 17])
-    husl = _nphusl._rgb_to_husl(img)
+    husl = nphusl.to_husl(img)
     rgb = nphusl.to_rgb(husl)
-    assert _diff(rgb, img, diff=2)
+    assert _diff(rgb, img, diff=1)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
@@ -383,7 +396,7 @@ def test_lch_to_rgb():
     lch = _nphusl._rgb_to_lch(float_img)
     rgb = _nphusl._lch_to_rgb(lch)
     int_rgb = transform.ensure_rgb_int(rgb)
-    assert _diff(int_rgb, img, diff=2)
+    assert _diff(int_rgb, img, diff=1)
 
 
 def test_xyz_to_rgb():
@@ -404,10 +417,13 @@ def test_from_linear():
 @try_optimizations(Opt.numexpr)
 def test_husl_to_lch():
     img = _img()
-    lch = _nphusl._rgb_to_lch(img)
-    husl = _nphusl._rgb_to_husl(img)
+    float_img = transform.ensure_rgb_float(img)
+    lch = _nphusl._rgb_to_lch(float_img)
+    husl = nphusl.to_husl(img)
     lch_2 = _nphusl._husl_to_lch(husl)
-    assert _diff(lch, lch_2)
+    img_2 = _nphusl._lch_to_rgb(lch_2)
+    img_2 = transform.ensure_rgb_int(img_2)
+    assert _diff(img_2, img, diff=1)
 
 
 @try_optimizations(Opt.numexpr)
@@ -536,7 +552,7 @@ def test_to_husl_rgba():
     new_rgb = np.round(rgb * ratio).astype(np.uint8)
     hsl_from_rgba = nphusl.to_husl(rgba)
     hsl_from_rgb = nphusl.to_husl(new_rgb)
-    assert _diff(hsl_from_rgba, hsl_from_rgb)
+    assert _diff_husl(hsl_from_rgba, hsl_from_rgb)
 
 
 def test_cython_max_chroma():
@@ -562,11 +578,10 @@ def _diff(a, b, diff=0.20):
     return np.all(np.abs(a - b) <= diff)
 
 
-HI_LIGHT = 90
-LO_SAT = 1
-
-
 def _diff_husl(a, b, max_rgb_diff=1):
+    """Checks HUSL conversion by converting HUSL to RGB.
+    Both HUSL triplets/arrays should produce the same RGB
+    triplet/array."""
     rgb_a = husl.husl_to_rgb(*a) if len(a) == 3 else nphusl.to_rgb(a)
     rgb_b = husl.husl_to_rgb(*b) if len(b) == 3 else nphusl.to_rgb(b)
     return _diff(rgb_a, rgb_b, diff=max_rgb_diff)
@@ -588,28 +603,9 @@ def _img():
     return IMG_CACHED[0].copy().astype(np.uint8)
 
 
-def main(img_int, chunksize):
-    img_float = img_int / 255.0
-    out = np.zeros(img_float.shape, dtype=np.float)
-    chunks = transform.chunk_img(img_float, chunksize=chunksize)
-    transform.chunk_transform(nphusl._rgb_to_husl, chunks, out)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("image", type=str)
-    parser.add_argument("--optimizations", default="cython",
-                        choices=("standard", "cython", "numexpr"))
-    parser.add_argument("--image-size", type=int, default=2000)
-    parser.add_argument("--chunk-size", type=int, default=1000)
-    args = parser.parse_args()
-    if args.optimizations == "standard":
-        nphusl.enable_standard_fns()
-    elif args.optimizations == "numexpr":
-        nphusl.enable_numexpr_fns()
-    else:
-        nphusl.enable_cython_fns()
-    n = args.image_size
-    img_int = imread.imread(args.image)[:n, :n]
-    main(img_int, args.chunk_size)
+# For functions with @try_optimizations decorator, remove
+# the original function. Remaining functions will have names like
+# fn__with_simd and fn__with_numpy.
+for name in _optimized:
+    del globals()[name]
 
