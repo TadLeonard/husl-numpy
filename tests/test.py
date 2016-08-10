@@ -4,6 +4,7 @@ import functools
 
 import imread
 import numpy as np
+import pytest
 
 import nphusl
 from nphusl.nphusl import _channel
@@ -623,6 +624,32 @@ def test_ensure_squeezed_output():
     assert list(go()) == [1,2,3]
     assert go().ndim == 1
     assert go().shape == (3,)
+
+
+def test_ensure_image_input():
+    @transform.ensure_image_input
+    def go(inp):
+        return inp
+    # case 1: input is an RGB triplet, but it's not a numpy array
+    assert type(go([1,2,3])) == np.ndarray
+    # case 2: input is 1D, but size isn't a multiple of 3
+    with pytest.raises(ValueError):
+        go(list(range(10)))
+    # case 3: input is 1D and size is a multiple of 3
+    assert type(go(list(range(9)))) == np.ndarray
+    # case 4: input is a numpy array, but its size isn't a multiple of 3
+    with pytest.raises(ValueError):
+        go(np.arange(10))
+    # case 5: input is a numpy array, but it's 1D
+    assert go(np.arange(9)).shape == (3, 3)
+    # case 6: input as a numpy array, and it's already well formed
+    orig = np.arange(9).reshape((3, 3))
+    assert go(orig) is orig
+    assert go(orig).shape == (3, 3)
+    # case 7: input looks like an RGBA quadruplet
+    assert go([1,2,3,4]).shape == (1, 4)
+    assert type(go([1,2,3,4])) == np.ndarray
+    assert go(list(range(8))).shape == (2, 4)
 
 
 def _ref_to_husl(rgb):
