@@ -104,62 +104,130 @@ rgb_int_output = ensure_output_dtype(Dtype.rgb_int)
 rgb_float_output = ensure_output_dtype(Dtype.rgb_float)
 
 
-def ensure_image_input(fn):
+Alert = Enum("Alert", "error warn quiet")
+
+
+class ReshapeAlert(str, Enum):
+    grayscale = "Conversion from grayscale input"
+    flat = "Conversion from a 1-dimensional input"
+    rgba = "Conversion from RGBA"
+
+
+# Warnings that the user can enable/disable
+alert_levels = {
+    ReshapeAlert.grayscale: Alert.warn,
+    ReshapeAlert.flat: Alert.warn,
+    ReshapeAlert.rgba: Alert.warn,
+}
+
+
+def _alert(alert: ReshapeAlert, msg: str):
+    alert_level = alert_levels[alert]
+    if alert_level == Alert.error:
+        raise ValueError("{}: {}".format(alert, msg))
+    elif alert_level == Alert.warn:
+        warnings.warn("{}: {}".format(alert, msg))
+
+
+_alert_flat = partial(_alert, ReshapeAlert.flat)
+_alert_gray = partial(_alert, ReshapeAlert.grayscale)
+_alert_rgba = partial(_alert, ReshapeAlert.rgba)
+
+
+def reshape_image_input(fn):
     """Ensures that we're working with an np.ndarray
-    with at least two dimensions with 3 or 4 color channels"""
+    with at least two dimensions and 3 or 4 color channels"""
     @wraps(fn)
     def wrapped(arr: ndarray, *args, **kwargs):
         if not isinstance(arr, (np.ndarray, np.generic)):
             arr = np.ascontiguousarray(arr)
+        size = arr.size
+        shape = arr.shape
+        channels = shape[-1]
         if arr.ndim == 1:
-            size = arr.size
             if size in (3, 4):
                 # force [r, g, b] to [[r, g, b]]
                 # or [r, g, b, a] to [[r, g, b, a]]
-                arr = np.ascontiguousarray(arr[None, :])
-            elif (size % 3) == 0:
+                arr = arr.reshape((1, size))
+            elif not (size % 3):
                 # force [r, g, b, r, g, b, ...] to [[r, g, b], ...]
                 # assumes an array of triplets (no RGBA allowed)
+                _alert_flat("Assuming 1D RGB")
                 arr = arr.reshape((int(size/3), 3))
-            elif (size % 4) == 0:
+            elif not (size % 4):
                 # force [r, g, b, a, r, g, b, a, ...] to [[r, g, b, a], ...]
+                _alert_flat("Assuming 1D RGBA")
                 arr = arr.reshape((int(size/4), 4))
+            elif np.issubdtype(arr.dtype, np.float):
+                # convert a 1D array of grayscale floats
+                _alert_flat("Assuming 1D grayscale")
+                _alert_gray("Assuming 1D grayscale")
+                arr = from_grayscale(arr)
             else:
-                raise ValueError("1-D array with a size not a multiple of 3/4 "
-                                 "doesn't look like like an image array")
+                raise ValueError("Unrecognized image shape: {}".format(shape))
+        elif arr.ndim == 2 and channels not in (3, 4):
+            # Semi-flat inputs not handled, so [[r,g,b,r,g,b...],...] won't be
+            # reshaped. What kind of monster would send in RGB data that way??
+            if np.issubdtype(arr.dtype, np.float):
+                _alert_gray("Assuming 2D grayscale")
+                arr = from_grayscale(arr)
+            else:
+                raise ValueError("Unrecognized image shape: {}".format(shape))
+        elif channels not in (3, 4):
+            raise ValueError("Unrecognized image shape: {}".format(shape))
         return fn(arr, *args, **kwargs)
     return wrapped
 
 
-def handle_grayscale(fn):
-    """Decorator for handling 1-channel RGB (grayscale) images"""
+def reshape_husl_input(fn):
+    """Ensure that HUSL input has at least two dimensions with
+    three color channels"""
     @wraps(fn)
-    def wrapped(rgb: ndarray, *args, **kwargs):
-        if rgb.shape[-1] == 1:
-            rgb = np.squeeze(rgb)
-        if len(rgb.shape) == 2 and rgb.shape[-1] != 3:
-            # 1D grayscale needed squeezing
-            _rgb = np.ndarray(rgb.shape + (3,), dtype=rgb.dtype)
-            _rgb[:] = rgb[..., None]
-            rgb = _rgb
-        return fn(rgb, *args, **kwargs)
+    def wrapped(arr, *args, **kwargs):
+        if not isinstance(arr, (np.ndarray, np.generic)):
+            arr = np.ascontiguousarray(arr)
+        size = arr.size
+        shape = arr.shape
+        channels = shape[-1]
+        if arr.ndim == 1:
+            if size == 3:
+                # force [h, s, l] to [[h, s, l]]
+                arr = arr.reshape((1, 3))
+            elif not (size % 3):
+                # force [h, s, l, h, s, l, ...] to [[h, s, l], ...]
+                _alert_flat("Assuming 1D HSL")
+                arr = arr.reshape((int(size/3), 3))
+            else:
+                raise ValueError("Unrecognized HSL shape: {}".format(shape))
+        elif channels != 3:
+            # Semi-flat inputs not handled, so [[h,s,l,h,s,h...],...] won't be
+            # reshaped. What kind of monster would send in HUSL data that way??
+            raise ValueError("Unrecognized HSL shape: {}".format(shape))
+        return fn(arr, *args, **kwargs)
     return wrapped
 
 
-def handle_rgba(fn):
+def from_grayscale(img):
+    """Broadcast single-channel grayscale into the three channels
+    of a new RGB array"""
+    rgb = np.empty(shape=img.shape + (3,), dtype=img.dtype)
+    rgb[:] = img[..., None]
+    return rgb
+
+
+def reshape_rgba_input(fn):
     """Decorator for handling 4-channel RGBA images"""
     @wraps(fn)
     def wrapped(arr: ndarray, *args, **kwargs):
-        if len(arr.shape) == 3 and arr.shape[-1] == 4:
-            # assume background is white because I said so
-            warnings.warn("Assuming white RGBA background!")
+        if arr.ndim in (2, 3) and arr.shape[-1] == 4:
+            _alert_rgba("Assumed RGBA with white background")
+            isint = np.issubdtype(arr.dtype, np.integer)
             rgb = arr[..., :3]
             a = arr[..., 3]
-            ratio = (a / 255.0)
-            rgb = np.round(rgb * ratio[..., None]).astype(np.uint8)
-        else:
-            rgb = arr
-        return fn(rgb, *args, **kwargs)
+            ratio = a / 255.0 if isint else a
+            arr = rgb * ratio[..., None]  # 3D float RGB
+            arr = np.round(arr).astype(arr.dtype) if isint else arr
+        return fn(arr, *args, **kwargs)
     return wrapped
 
 
