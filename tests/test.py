@@ -571,6 +571,15 @@ def test_ensure_float_input():
     go(np.arange(10, dtype=np.uint8), np.float64)
 
 
+def test_ensure_int_input():
+    @transform.int_input
+    def go(inp, expect_dtype):
+        assert inp.dtype == expect_dtype
+    go(np.arange(10, dtype=np.int64), np.int64)
+    go(np.arange(10, dtype=np.uint8), np.uint8)
+    go(np.arange(10, dtype=np.float32), np.int64)
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
