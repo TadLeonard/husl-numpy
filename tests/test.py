@@ -661,6 +661,12 @@ def test_to_husl_triplet():
     assert nphusl.to_husl(np.asarray([255, 0, 0]))[0] < 13  # red hue
 
 
+@try_optimizations(Opt.cython, Opt.numexpr)
+def test_to_rgb_triplet():
+    assert type(nphusl.to_rgb([360, 100, 100])) ==  np.ndarray
+    assert np.all(nphusl.to_rgb([360, 100, 100]) ==  [255, 255, 255])
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
