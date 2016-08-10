@@ -652,6 +652,15 @@ def test_ensure_image_input():
     assert go(list(range(8))).shape == (2, 4)
 
 
+@try_optimizations()
+def test_to_husl_triplet():
+    assert type(nphusl.to_husl([10, 30, 40])) == np.ndarray
+    assert _diff(nphusl.to_husl([0x80, 0x80, 0x80]),
+                 nphusl.to_husl([0.5, 0.5, 0.5]), diff=0.3)
+    assert nphusl.to_husl([30, 30, 30])[1] < 0.01  # low saturation gray value
+    assert nphusl.to_husl(np.asarray([255, 0, 0]))[0] < 13  # red hue
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
