@@ -26,6 +26,11 @@
 #define MIN_IMG_SIZE_THREADED 30*30*3  // min array size for OpenMP threads
 
 
+//
+// Conversion in the RGB -> HUSL direction
+//
+
+
 static double *allocate_hsl(size_t size);
 static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size);
 static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size);
@@ -124,6 +129,8 @@ static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size) {
 }
 
 
+// Convert CIE-LUV to HUSL. The original RGB array is still passed in
+// for the handling of boundary conditions (white and black pixels).
 static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size) {
     #pragma omp for schedule(guided)
     for (unsigned int i = 0; i < size; i+=3) {
@@ -143,6 +150,7 @@ static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size) {
             *(++hsl_p) = 0;
             *(++hsl_p) = 0;
         } else {
+            // This is the most expensive part of the RGB->HUSL chain
             const double l = *hsl_p;
             const double u = *(hsl_p+1);
             const double v = *(hsl_p+2);
@@ -383,4 +391,13 @@ static double atan2_approx(double y, double x) {
 }
 
 #endif // end atan2_approx conditional definition
+
+
+
+//
+// Conversion in the HUSL -> RGB direction
+//
+
+
+
 

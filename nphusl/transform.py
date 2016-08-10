@@ -41,7 +41,7 @@ def to_dtype(dtype, arr: ndarray):
     return arr.astype(dtype.exact)
 
 
-_int_type = type_tuple(np.integer, np.uint8, to_dtype, False)
+_int_type = type_tuple(np.integer, np.int64, to_dtype, False)
 _float_type = type_tuple(np.float, np.float64, to_dtype, False)
 _rgb_int_type = type_tuple(np.integer, np.uint8, to_rgb_int, True)
 _rgb_float_type = type_tuple(np.float, np.float64, to_rgb_float, True)
