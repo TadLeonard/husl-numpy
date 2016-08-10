@@ -90,14 +90,14 @@ def test_to_husl_3d():
 
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_husl_gray():
-    img = _img()
+    img = transform.ensure_rgb_float(_img())
     img[..., 1] = img[..., 0]
     img[..., 2] = img[..., 0]
-    rgb_arr = img[..., 0] * 255  # single channel
-    husl_new = nphusl.to_husl(rgb_arr)
-    for row in range(rgb_arr.shape[0]):
-        for col in range(rgb_arr.shape[1]):
-            husl_old = _ref_to_husl(img[row, col])
+    gray_arr = img[..., 0]  # single channel
+    husl_new = nphusl.to_husl(gray_arr)
+    for row in range(gray_arr.shape[0]):
+        for col in range(gray_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*img[row, col])
             assert _diff_husl(husl_new[row, col], husl_old)
 
 
@@ -134,15 +134,17 @@ def test_to_hue_vs_old():
 @try_optimizations(Opt.cython, Opt.numexpr)
 def test_to_hue_gray():
     img = _img()
+    img = transform.ensure_rgb_float(img)
     img[..., 1] = img[..., 0]
     img[..., 2] = img[..., 0]
-    rgb_arr = img[..., 0] * 255  # single channel
-    hue_new = nphusl.to_hue(rgb_arr)
-    for row in range(rgb_arr.shape[0]):
-        for col in range(rgb_arr.shape[1]):
-            hue_old = _ref_to_husl(img[row, col])
-            diff = 5.0 if hue_old[1] < 1 else 0.0001
-            assert _diff(hue_new[row, col], hue_old[0], diff=diff)
+    gray_arr = img[..., 0]  # single channel
+    hue_new = nphusl.to_hue(gray_arr)
+    for row in range(gray_arr.shape[0]):
+        for col in range(gray_arr.shape[1]):
+            husl_old = husl.rgb_to_husl(*img[row, col])
+            assert husl_old[1] < 1  # low saturation
+            # inaccurate hue values at low saturation
+            assert _diff(hue_new[row, col], husl_old[0], diff=5)
 
 
 @try_optimizations()
@@ -528,7 +530,7 @@ def test_to_hue_3d():
     assert _diff(as_husl[..., 0], just_hue)
 
 
-def test_handle_rgba():
+def test_reshape_rgba_input():
     rgb = _img()
     rgba = np.zeros(shape=rgb.shape[:-1] + (4,), dtype=rgb.dtype)
     rgba[..., :3] = rgb
@@ -536,7 +538,7 @@ def test_handle_rgba():
     rgba[..., 3] = alpha
     ratio = alpha / 255.0
     do_nothing = lambda img: img
-    to_rgb = transform.handle_rgba(do_nothing)
+    to_rgb = transform.reshape_rgba_input(do_nothing)
     new_rgb = to_rgb(rgba)
     should_be = np.round(rgb * ratio).astype(np.uint8)
     assert _diff(new_rgb, should_be)
@@ -544,13 +546,11 @@ def test_handle_rgba():
 
 @try_optimizations()
 def test_to_husl_rgba():
-    rgb = _img()
+    rgb = transform.ensure_rgb_float(_img())
     rgba = np.zeros(shape=rgb.shape[:-1] + (4,), dtype=rgb.dtype)
     rgba[..., :3] = rgb
-    alpha = 0x80  # 50%
-    rgba[..., 3] = alpha
-    ratio = alpha / 255.0
-    new_rgb = np.round(rgb * ratio).astype(np.uint8)
+    rgba[..., 3] = 0.5   # 50% for a float RGBA array
+    new_rgb = rgb * 0.5
     hsl_from_rgba = nphusl.to_husl(rgba)
     hsl_from_rgb = nphusl.to_husl(new_rgb)
     assert _diff_husl(hsl_from_rgba, hsl_from_rgb)
@@ -626,8 +626,8 @@ def test_ensure_squeezed_output():
     assert go().shape == (3,)
 
 
-def test_ensure_image_input():
-    @transform.ensure_image_input
+def test_reshape_image_input():
+    @transform.reshape_image_input
     def go(inp):
         return inp
     # case 1: input is an RGB triplet, but it's not a numpy array
@@ -665,6 +665,11 @@ def test_to_husl_triplet():
 def test_to_rgb_triplet():
     assert type(nphusl.to_rgb([360, 100, 100])) ==  np.ndarray
     assert np.all(nphusl.to_rgb([360, 100, 100]) ==  [255, 255, 255])
+
+
+@try_optimizations()
+def test_to_husl_rgba_quadruplet():
+    print(nphusl.to_husl([0.5, 0.2, 0, 0.5]))
 
 
 def _ref_to_husl(rgb):
