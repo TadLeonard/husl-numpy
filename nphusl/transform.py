@@ -157,6 +157,21 @@ def handle_rgba(fn):
     return wrapped
 
 
+def squeeze_output(fn):
+    """Decorator for squeezing the output array if it's necessary.
+    For example, if the input for `to_husl` is an RGB list like
+    [R, G, B], the input will be reshaped to [[R, G, B]] for compatibility
+    with the ND-array functions. The output will then have to be
+    'squeezed' from [[H, S, L]] to [H, S, L] with `np.squeeze`."""
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        out = fn(*args, **kwargs)
+        if out.size == 3 and out.ndim == 2:
+            out = np.squeeze(out)
+        return out
+    return wrapped
+
+
 ### Functions for applying transformations to images in chunks
 
 def in_chunks(img: ndarray, transform: callable,
