@@ -1,3 +1,17 @@
+"""
+HUSL (human-friendly Hue, Saturation, and Lightness)
+color conversion. Found in this module:
+
+1. HUSL <-> RGB color conversion API
+   a. `to_husl`: converts an RGB array to a HUSL array
+   b. `to_rgb`: converts a HUSL array to and RGB array
+   c. `to_hue`: converts an RGB array to an array of HUSL hue values
+2. The NumPy implementation of these conversions. Functions with
+   alternative implementations in C, Cython, or NumExpr
+   are flagged with the `@optimized` decorator, and they can be enabled with
+   the context managers (e.g. `with simd_enabled: ...`) in `__init__`.
+   By default, C functions are used if they're available.
+"""
 
 import math
 import warnings
@@ -42,7 +56,7 @@ def to_husl(rgb_img: ndarray, chunksize: int = None,
     return transform.in_chunks(rgb_img, _rgb_to_husl, chunksize, out)
 
 
-### Optimization hooks
+### Optimization selection
 
 try:
     from . import _numexpr_opt as expr
