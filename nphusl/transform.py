@@ -104,9 +104,9 @@ rgb_int_output = ensure_output_dtype(Dtype.rgb_int)
 rgb_float_output = ensure_output_dtype(Dtype.rgb_float)
 
 
-def ensure_numpy_input(fn):
+def ensure_image_input(fn):
     """Ensures that we're working with an np.ndarray
-    with at least two dimensions"""
+    with at least two dimensions with 3 or 4 color channels"""
     @wraps(fn)
     def wrapped(arr: ndarray, *args, **kwargs):
         if not isinstance(arr, (np.ndarray, np.generic)):
@@ -117,10 +117,16 @@ def ensure_numpy_input(fn):
                 # force [r, g, b] to [[r, g, b]]
                 # or [r, g, b, a] to [[r, g, b, a]]
                 arr = np.ascontiguousarray(arr[None, :])
-            else:
+            elif (size % 3) == 0:
                 # force [r, g, b, r, g, b, ...] to [[r, g, b], ...]
                 # assumes an array of triplets (no RGBA allowed)
                 arr = arr.reshape((int(size/3), 3))
+            elif (size % 4) == 0:
+                # force [r, g, b, a, r, g, b, a, ...] to [[r, g, b, a], ...]
+                arr = arr.reshape((int(size/4), 4))
+            else:
+                raise ValueError("1-D array with a size not a multiple of 3/4 "
+                                 "doesn't look like like an image array")
         return fn(arr, *args, **kwargs)
     return wrapped
 
