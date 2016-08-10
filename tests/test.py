@@ -580,6 +580,24 @@ def test_ensure_int_input():
     go(np.arange(10, dtype=np.float32), np.int64)
 
 
+def test_ensure_rgb_float_input():
+    @transform.rgb_float_input
+    def go(inp):
+        assert inp.dtype == np.float64
+        return inp
+    # case 1: base type doesn't match (decorator scales down input arr)
+    inp = go(np.arange(10, dtype=np.int64))
+    assert np.all(inp == np.arange(10) / 255)
+    # case 2: base type matches (decorator converts type, but doesn't scale)
+    inp = go(np.arange(10, dtype=np.float32))
+    assert np.all(inp == np.arange(10))
+    # case 3: base type matches, no scaling or conversion happens
+    orig = np.arange(10, dtype=np.float64)
+    inp = go(orig)
+    assert inp is orig
+    assert np.all(inp == np.arange(10))
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
