@@ -13,6 +13,7 @@ from . import transform
 ### From RGB: to_husl, to_hue
 ### From HUSL: to_rgb
 
+@transform.squeeze_output
 @transform.ensure_numpy_input
 @transform.handle_rgba
 @transform.handle_grayscale
@@ -22,6 +23,7 @@ def to_hue(rgb_img: ndarray, chunksize: int = None,
     return transform.in_chunks(rgb_img, _rgb_to_hue, chunksize, out)
 
 
+@transform.squeeze_output
 @transform.ensure_numpy_input
 @transform.rgb_int_output
 def to_rgb(husl_img: ndarray, chunksize: int = None,
@@ -30,6 +32,7 @@ def to_rgb(husl_img: ndarray, chunksize: int = None,
     return transform.in_chunks(husl_img, _husl_to_rgb, chunksize, out)
 
 
+@transform.squeeze_output
 @transform.ensure_numpy_input
 @transform.handle_rgba
 @transform.handle_grayscale
