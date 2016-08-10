@@ -15,8 +15,6 @@ cdef size_t data_size = sizeof(hsl_t)
 
 cdef extern from "_simd.h":
     hsl_t* rgb_to_husl_nd(np.uint8_t *rgb, size_t size)
-    hsl_t* rgb_to_husl_triplet(
-        np.uint8_t r, np.uint8_t g, np.uint8_t b)
 
 
 @transform.rgb_int_input
@@ -26,15 +24,10 @@ def _rgb_to_husl(rgb):
     cdef hsl_t[::1] hsl_flat
     cdef np.ndarray out
     try:
-        if size == 3:
-            hsl_flat = <hsl_t[:size]>rgb_to_husl_triplet(
-                rgb[0][0], rgb[0][1], rgb[0][2])
-            out = np.asarray(hsl_flat, dtype=hsl_type)
-        else:
-            pixels = size / 3
-            rgb_flat = rgb.reshape((pixels, 3))
-            hsl_flat = _rgb_to_husl_2d(rgb_flat, size)
-            out = np.asarray(hsl_flat, dtype=hsl_type).reshape(rgb.shape)
+        pixels = size / 3
+        rgb_flat = rgb.reshape((pixels, 3))
+        hsl_flat = _rgb_to_husl_2d(rgb_flat, size)
+        out = np.asarray(hsl_flat, dtype=hsl_type).reshape(rgb.shape)
         return out.copy()
     finally:
         free(<void*>&hsl_flat[0])
