@@ -616,6 +616,15 @@ def test_ensure_rgb_int_input():
     assert np.all(inp == np.arange(0, 255))
 
 
+def test_ensure_squeezed_output():
+    @transform.squeeze_output
+    def go():
+        return np.asarray([[1,2,3]])
+    assert list(go()) == [1,2,3]
+    assert go().ndim == 1
+    assert go().shape == (3,)
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
