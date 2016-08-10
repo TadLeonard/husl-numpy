@@ -669,7 +669,19 @@ def test_to_rgb_triplet():
 
 @try_optimizations()
 def test_to_husl_rgba_quadruplet():
-    print(nphusl.to_husl([0.5, 0.2, 0, 0.5]))
+    hsl = nphusl.to_husl([0.5, 0.2, 0, 0.5])
+    assert list(hsl) == [28.42153418, 100.0, 14.39285828]
+
+
+@try_optimizations()
+def test_to_husl_1d_grayscale():
+    hsl_from_gray = nphusl.to_husl([0.1, 0.1])  # interpreted as 2 gray pixels
+    hsl_from_rgb = nphusl.to_husl([[0.1, 0.1, 0.1], [0.1, 0.1, 0.1]])
+    expected = [[2.88467242e+02, 1.02865661e-05, 9.30666400],
+                [2.88467242e+02, 1.02865661e-05, 9.30666400]]
+    assert np.all(hsl_from_gray == hsl_from_rgb)
+    assert _diff_husl(hsl_from_gray, expected)
+    assert _diff_husl(hsl_from_rgb, expected)
 
 
 def _ref_to_husl(rgb):
@@ -692,8 +704,8 @@ def _diff_husl(a, b, max_rgb_diff=1):
     """Checks HUSL conversion by converting HUSL to RGB.
     Both HUSL triplets/arrays should produce the same RGB
     triplet/array."""
-    rgb_a = husl.husl_to_rgb(*a) if len(a) == 3 else nphusl.to_rgb(a)
-    rgb_b = husl.husl_to_rgb(*b) if len(b) == 3 else nphusl.to_rgb(b)
+    rgb_a = nphusl.to_rgb(a)
+    rgb_b = nphusl.to_rgb(b)
     return _diff(rgb_a, rgb_b, diff=max_rgb_diff)
 
 
