@@ -562,6 +562,15 @@ def test_cython_max_chroma():
     assert abs(husl_chroma - cyth_chroma) < 0.001
 
 
+def test_ensure_float_input():
+    @transform.float_input
+    def go(inp, expect_dtype):
+        assert inp.dtype == expect_dtype
+    go(np.arange(10, dtype=np.float32), np.float32)
+    go(np.arange(10, dtype=np.float64), np.float64)
+    go(np.arange(10, dtype=np.uint8), np.float64)
+
+
 def _ref_to_husl(rgb):
     asfloat = (c/255.0 for c in rgb)
     return husl.rgb_to_husl(*asfloat)
