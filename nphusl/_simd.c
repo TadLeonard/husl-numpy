@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <stdint.h>
  
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include <_simd.h>
 #include <_linear_lookup.h>
 #include <_scale_const.h>
@@ -24,8 +26,9 @@
 #define MIN_IMG_SIZE_THREADED 30*30*3  // min array size for OpenMP threads
 
 
-double *rgb_to_husl_triplet(uint8_t r, uint8_t g, uint8_t b);
 static double *allocate_hsl(size_t size);
+static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size);
+static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size);
 static void to_linear_rgb(uint8_t r, uint8_t g, uint8_t b,
                           double *rl, double *gl, double *bl);
 static void to_xyz(double r, double g, double b,
@@ -74,57 +77,9 @@ double* rgb_to_husl_nd(uint8_t *rgb, size_t size) {
         default(none) shared(rgb, hsl, size) \
         if (size >= MIN_IMG_SIZE_THREADED)
     { // begin OMP parallel
-
-    double *hsl_p;
-    uint8_t *rgb_p;
-
-    #pragma omp for schedule(static)
-    for (unsigned int i = 0; i < size; i+=3) { 
-        hsl_p = hsl + i;
-        rgb_p = rgb + i;
-        const uint8_t r = *(rgb_p);
-        const uint8_t g = *(++rgb_p);
-        const uint8_t b = *(++rgb_p);
-
-        double rl, gl, bl;
-        double x, y, z;
-        double l, u, v;
-
-        // from RGB in [0, 255] to RGB-linear in [0,1]
-        // to CIE-XYZ to CIE-LUV
-        to_linear_rgb(r, g, b, &rl, &gl, &bl);
-        to_xyz(rl, gl, bl, &x, &y, &z);
-        to_luv(x, y, z, &l, &u, &v);
-
-        // To CIE-LCH, then to HUSL. ~70% of CPU cycles spent here!
-        const double h = to_hue(u, v);
-        const double s = to_saturation(l, u, v, h);
-        *(hsl_p) = h;
-        *(++hsl_p) = s;
-        *(++hsl_p) = l;
-    } // end OMP for
-
-    #pragma omp barrier
-    #pragma omp for schedule(guided)
-    for (unsigned int i = 0; i < size; i+=3) {
-        hsl_p = hsl + i;
-        rgb_p = rgb + i;
-
-        const uint_fast8_t r = *rgb_p;
-        const uint_fast8_t g = *(++rgb_p);
-        const uint_fast8_t b = *(++rgb_p);
-        const uint_fast32_t rgb24 = (b << 16) | (g << 8) | r;
-
-        if (rgb24 == 0xFFFFFF) {
-            *(hsl_p) = WHITE_HUE;
-            *(++hsl_p) = WHITE_SATURATION;
-            *(++hsl_p) = WHITE_LIGHTNESS;
-        } else if (!rgb24) {
-            *(hsl_p) = 0;
-            *(++hsl_p) = 0;
-            *(++hsl_p) = 0;
-        }
-    } // end OMP for
+    rgb_to_luv_nd(rgb, hsl, size);
+    #pragma omp barrier  // ensure LUV elements are done being written
+    rgbluv_to_husl_nd(rgb, hsl, size);
     } // end OMP parallel
 
     return hsl;
@@ -132,8 +87,8 @@ double* rgb_to_husl_nd(uint8_t *rgb, size_t size) {
 
 
 // Aligned malloc for HUSL double arrays
-static double* allocate_hsl(size_t size) {
-    double *hsl __attribute__((aligned(0x1000))) = \
+static double* __attribute__((alloc_size(1))) allocate_hsl(size_t size) {
+    double *hsl __attribute__((aligned(__BIGGEST_ALIGNMENT__))) = \
         (double*) malloc(size*sizeof(double));
     if (hsl == NULL) {
         fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
@@ -143,31 +98,61 @@ static double* allocate_hsl(size_t size) {
 }
 
 
-// RGB -> HUSL conversion for a single RGB triplet
-// This is just an optimization. The full ND-array fn could be used.
-double* rgb_to_husl_triplet(uint8_t r, uint8_t g, uint8_t b) {
-    double *hsl = (double*) malloc(3*sizeof(double));
-    double h, s, l;
-    if (!r && !g && !b) {
-        h = s = l = 0;
-    } else if (r == 255 && g == 255 && b == 255) {
-        h = WHITE_HUE;
-        s = WHITE_SATURATION;
-        l = WHITE_LIGHTNESS;
-    } else {
+// Converts nonlinear RGB to CIE-LUV
+static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size) {
+    #pragma omp for schedule(static)
+    for (unsigned int i = 0; i < size; i+=3) { 
+        double *luv_p = luv + i;
+        uint8_t *rgb_p = rgb + i;
+        const uint8_t r = *(rgb_p);
+        const uint8_t g = *(++rgb_p);
+        const uint8_t b = *(++rgb_p);
+
+        // from RGB in [0, 255] to RGB-linear in [0,1]
         double rl, gl, bl;
-        double x, y, z;
-        double u, v;
         to_linear_rgb(r, g, b, &rl, &gl, &bl);
+
+        // to CIE-XYZ to CIE-LUV
+        double x, y, z;
+        double *l, *u, *v;
+        l = luv_p;
+        u = (++luv_p);
+        v = (++luv_p);
         to_xyz(rl, gl, bl, &x, &y, &z);
-        to_luv(x, y, z, &l, &u, &v);
-        h = to_hue(u, v);
-        s = to_saturation(l, u, v, h);
+        to_luv(x, y, z, l, u, v);
     }
-    hsl[0] = h;
-    hsl[1] = s;
-    hsl[2] = l;
-    return hsl;
+}
+
+
+static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size) {
+    #pragma omp for schedule(guided)
+    for (unsigned int i = 0; i < size; i+=3) {
+        double *hsl_p = luv_hsl + i;
+        uint8_t *rgb_p = rgb + i;
+
+        const uint8_t r = *rgb_p;
+        const uint8_t g = *(++rgb_p);
+        const uint8_t b = *(++rgb_p);
+
+        if (r == 255 && g == 255 && b == 255) {
+            *(hsl_p) = WHITE_HUE;
+            *(++hsl_p) = WHITE_SATURATION;
+            *(++hsl_p) = WHITE_LIGHTNESS;
+        } else if (!r && !g && !b) {
+            *(hsl_p) = 0;
+            *(++hsl_p) = 0;
+            *(++hsl_p) = 0;
+        } else {
+            const double l = *hsl_p;
+            const double u = *(hsl_p+1);
+            const double v = *(hsl_p+2);
+            const double h = to_hue(u, v);
+            const double s = to_saturation(l, u, v, h);
+            *(hsl_p) = h;
+            *(++hsl_p) = s;
+            *(++hsl_p) = l;
+        }
+    } // end OMP for
 }
 
 
@@ -206,8 +191,8 @@ static inline void to_luv(double x, double y, double z,
 }
 
 
-// Returns the HUSL hue.
-// This is the angle, in degrees, between VU (of CIELUV color space).
+// Returns the HUSL hue, the angle in degrees between
+// V and U of the  CIELUV color space.
 static inline double to_hue(double u, double v) {
     const double DEG_PER_RAD = 180.0 / M_PI;
     double hue = atan2_approx(v, u) * DEG_PER_RAD;
@@ -366,7 +351,7 @@ static inline double to_light(double y_value) {
     }
 }
 
-#endif
+#endif // end to_light conditional definition
 
 
 #if defined(USE_ATAN2_APPROX)
@@ -391,10 +376,11 @@ static double atan2_approx(double y, double x) {
     }
 }
 
+
 #else
 static double atan2_approx(double y, double x) {
     return atan2f(y, x);
 }
 
-#endif
+#endif // end atan2_approx conditional definition
 
