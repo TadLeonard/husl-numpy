@@ -116,7 +116,7 @@ def ensure_numpy_input(fn):
             if size in (3, 4):
                 # force [r, g, b] to [[r, g, b]]
                 # or [r, g, b, a] to [[r, g, b, a]]
-                arr = arr[None, :]
+                arr = np.ascontiguousarray(arr[None, :])
             else:
                 # force [r, g, b, r, g, b, ...] to [[r, g, b], ...]
                 # assumes an array of triplets (no RGBA allowed)
