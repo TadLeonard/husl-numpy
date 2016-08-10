@@ -278,6 +278,7 @@ cdef inline double to_linear(double value) nogil:
         return value / 12.92
 
 
+@transform.float_input
 def _husl_to_rgb(hsl):
     if len(hsl.shape) == 3:
         return _husl_to_rgb_3d(hsl)
