@@ -9,7 +9,7 @@ import nphusl
 from nphusl.nphusl import _channel
 from nphusl import transform
 from nphusl.transform import ensure_int, ensure_float
-from nphusl import _nphusl
+from nphusl import nphusl as _nphusl
 import husl  # the original husl-colors.org library
 from enum import Enum
 
@@ -451,7 +451,7 @@ def test_lch_to_luv():
 def test_from_light():
     val_a = 8 + 1.5
     val_b = 8 - 3.5
-    _f_inv = nphusl._nphusl._from_light
+    _f_inv = _nphusl._from_light
     assert husl.f_inv(val_a) == _f_inv(np.array([val_a]))[0]
     assert husl.f_inv(val_b) == _f_inv(np.array([val_b]))[0]
 
