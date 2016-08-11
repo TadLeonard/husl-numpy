@@ -261,8 +261,8 @@ static inline double max_chroma(double lightness, double hue) {
 
 static inline double interpolate_chroma(
         double val_1, double val_2, double delta_idx) {
-    double val_lo = fmin(val_1, val_2);
-    return val_lo + delta_idx*(fabs(val_2 - val_2));
+    const double val_lo = fmin(val_1, val_2);
+    return val_lo + delta_idx*(fabs(val_2 - val_1));
 }
 
 
@@ -326,8 +326,7 @@ static inline double min_chroma_length(
 // tables, each with a different Y-value to L-value scale.
 static double to_light(double y_value) {
     double idx;
-    double light_hi, light_lo;
-    unsigned short idx_floor;
+    //unsigned short idx_floor;
     if (y_value < y_thresh_0) {
         idx = y_value/y_idx_step_0;
     } else if (y_value < y_thresh_1) {
@@ -335,10 +334,28 @@ static double to_light(double y_value) {
     } else {
         idx = ((y_value - y_thresh_1)/y_idx_step_2) + L_SEGMENT_SIZE*2;
     }
-    idx_floor = floor(idx);
+    uint_fast16_t idx_floor = floor(idx);
     idx_floor = fmax(0, fmin(L_FULL_TABLE_SIZE-2, idx_floor));
-    light_lo = light_table_big[idx_floor];
-    light_hi = light_table_big[idx_floor+1];
+    const double idx_diff = idx - idx_floor;
+    if (idx_diff < 0.1) {
+        return light_table_big[idx_floor];
+    } else if (idx_diff > 0.9) {
+        return light_table_big[idx_floor+1];
+    }
+    const double light_lo = light_table_big[idx_floor];
+    const double light_hi = light_table_big[idx_floor+1];
+    double actual;
+    if (y_value > EPSILON) {
+        actual = 116 * cbrt(y_value / REF_Y) - 16;
+    } else {
+        actual = (y_value / REF_Y) * KAPPA;
+    }
+    double interp = interpolate_light(light_hi, light_lo, idx-idx_floor);
+    if (fabs(actual - interp) > 0.05) {
+        printf("y=%f-> lhi: %f llo %f idxf: %d, idx: %f, idxdiff: %f\n",
+               y_value, light_hi, light_lo, idx_floor, idx, idx-idx_floor);
+        printf("  actual=%f interp=%f\n", actual, interp);
+    }
     return interpolate_light(light_hi, light_lo, idx-idx_floor);
 }
 
