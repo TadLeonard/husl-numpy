@@ -8,6 +8,7 @@ NO_CYTHON_EXT = "--no-cython-ext" in sys.argv
 NO_SIMD_EXT = "--no-simd-ext" in sys.argv
 NO_LIGHT_LUT = "--no-light-lut" in sys.argv
 NO_CHROMA_LUT = "--no-chroma-lut" in sys.argv
+NO_HUE_LUT = "--no-hue-lut" in sys.argv
 NO_ATAN2_APPROX = "--no-atan2-approx" in sys.argv
 
 if CYTHONIZE:
@@ -20,6 +21,8 @@ if NO_LIGHT_LUT:
     sys.argv.remove("--no-light-lut")
 if NO_CHROMA_LUT:
     sys.argv.remove("--no-chroma-lut")
+if NO_HUE_LUT:
+    sys.argv.remove("--no-hue-lut")
 if NO_ATAN2_APPROX:
     sys.argv.remove("--no-atan2-approx")
 
@@ -94,6 +97,8 @@ if not NO_LIGHT_LUT:
     simd_compile_args.append("-DUSE_LIGHT_LUT")
 if not NO_CHROMA_LUT:
     simd_compile_args.append("-DUSE_CHROMA_LUT")
+if not NO_HUE_LUT:
+    simd_compile_args.append("-DUSE_HUE_LUT")
 if not NO_ATAN2_APPROX:
     simd_compile_args.append("-DUSE_ATAN2_APPROX")
 
@@ -109,7 +114,8 @@ simd_ext = Extension("nphusl._simd_opt",
                               "nphusl/_linear_lookup.c",
                               "nphusl/_scale_const.c",
                               "nphusl/_light_lookup.c",
-                              "nphusl/_chroma_lookup.c",],
+                              "nphusl/_chroma_lookup.c",
+                              "nphusl/_hue_lookup.c"],
                      extra_compile_args=simd_compile_args,
                      include_dirs=["nphusl/"],
                      extra_link_args=["-fopenmp"])
