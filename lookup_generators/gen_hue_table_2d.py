@@ -1,6 +1,6 @@
 """Generate a 2D lookup table for LUV to HUSL hue.
-The inputs are L and V from CIE-LUV. This replaces
-an expensive arctan2 operation and a branch."""
+The inputs are U and V from CIE-LUV.
+This replaces an expensive arctan2 call."""
 
 import argparse
 import math

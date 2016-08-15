@@ -83,8 +83,8 @@ Quadrant 4: 180-270 degrees (V-, U-)
 """
 max_vu_quotient = 100
 vu_00_idx_step = max_vu_quotient/N
-vu_01_idx_step = -max_vu_quotient/N
-vu_10_idx_step = -max_vu_quotient/N
+vu_01_idx_step = max_vu_quotient/N
+vu_10_idx_step = max_vu_quotient/N
 vu_11_idx_step = max_vu_quotient/N
 table_index_steps = [vu_00_idx_step,
                      vu_01_idx_step,
@@ -95,9 +95,10 @@ for index in table_indices:
     usign, vsign = table_signs[index]
     vustep = table_index_steps[index]
     postfix = table_postfixes[index]
-    print("extern const h_table_t hue_table_{}[{}][{}];".format(postfix, N, N), file=out_h)
-    print("extern const h_table_t v_idx_step_{};".format(postfix), file=out_h)
-    print("extern const h_table_t u_idx_step_{};".format(postfix), file=out_h)
+    print("extern const h_table_t hue_table_{}[{}];".format(postfix, N), file=out_h)
+    print("extern const h_table_t vu_idx_step_{};".format(postfix), file=out_h)
+    print("const h_table_t vu_idx_step_{} = {};".format(
+          postfix, vustep), file=out_c)
 
 # build four hue tables for U+V+/U+V-/U-V+/U-V- or 00/01/10/11 cases
 # another way of looking at it is we're making a table for each of the
