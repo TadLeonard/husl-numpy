@@ -1,31 +1,31 @@
 import sys
+assert sys.version_info >= (3, 4), "Python 3.4+ only!"
+
+from enum import Enum
+from pprint import pformat
 from setuptools import setup, Extension
 from nphusl import __version__
 import numpy
 
-CYTHONIZE = "--cythonize" in sys.argv
-NO_CYTHON_EXT = "--no-cython-ext" in sys.argv
-NO_SIMD_EXT = "--no-simd-ext" in sys.argv
-NO_LIGHT_LUT = "--no-light-lut" in sys.argv
-NO_CHROMA_LUT = "--no-chroma-lut" in sys.argv
-NO_HUE_LUT = "--no-hue-lut" in sys.argv
-NO_ATAN2_APPROX = "--no-atan2-approx" in sys.argv
 
-if CYTHONIZE:
-    sys.argv.remove("--cythonize")
-if NO_SIMD_EXT:
-    sys.argv.remove("--no-simd-ext")
-if NO_CYTHON_EXT:
-    sys.argv.remove("--no-cython-ext")
-if NO_LIGHT_LUT:
-    sys.argv.remove("--no-light-lut")
-if NO_CHROMA_LUT:
-    sys.argv.remove("--no-chroma-lut")
-if NO_HUE_LUT:
-    sys.argv.remove("--no-hue-lut")
-if NO_ATAN2_APPROX:
-    sys.argv.remove("--no-atan2-approx")
+class Arg(str, Enum):
+    CYTHONIZE = "--cythonize"
+    NO_CYTHON_EXT = "--no-cython-ext"
+    NO_SIMD_EXT = "--no-simd-ext"
+    NO_LIGHT_LUT = "--no-light-lut"
+    NO_CHROMA_LUT = "--no-chroma-lut"
+    NO_HUE_LUT = "--no-hue-lut"
+    NO_ATAN2_APPROX = "--no-atan2-approx"
 
+
+args = {}
+for arg in Arg:
+    arg_enabled = arg.value in sys.argv
+    args[arg] = arg_enabled
+    if arg_enabled:
+        sys.argv.remove(arg.value)
+
+print("Application options:\n{}".format(pformat(args)))
 
 url = "https://github.com/TadLeonard/husl-numpy"
 download = "{}/archive/{}.tar.gz".format(url, __version__)
@@ -85,7 +85,7 @@ classifiers = [
   'Topic :: Multimedia :: Graphics',
 ]
 
-ext = '.pyx' if CYTHONIZE else '.c'
+ext = '.pyx' if args[Arg.CYTHONIZE] else '.c'
 extensions = []
 cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
 simd_compile_args = [
@@ -93,13 +93,13 @@ simd_compile_args = [
      "-ftree-vectorizer-verbose=2",
      "-std=c99",
 ] + cython_compile_args
-if not NO_LIGHT_LUT:
+if not args[Arg.NO_LIGHT_LUT]:
     simd_compile_args.append("-DUSE_LIGHT_LUT")
-if not NO_CHROMA_LUT:
+if not args[Arg.NO_CHROMA_LUT]:
     simd_compile_args.append("-DUSE_CHROMA_LUT")
-if not NO_HUE_LUT:
+if not args[Arg.NO_HUE_LUT]:
     simd_compile_args.append("-DUSE_HUE_LUT")
-if not NO_ATAN2_APPROX:
+if not args[Arg.NO_ATAN2_APPROX]:
     simd_compile_args.append("-DUSE_ATAN2_APPROX")
 
 
@@ -120,11 +120,11 @@ simd_ext = Extension("nphusl._simd_opt",
                      include_dirs=["nphusl/"],
                      extra_link_args=["-fopenmp"])
 
-if not NO_CYTHON_EXT:
+if not args[Arg.NO_CYTHON_EXT]:
     extensions.append(cython_ext)
-if not NO_SIMD_EXT:
+if not args[Arg.NO_SIMD_EXT]:
     extensions.append(simd_ext)
-if CYTHONIZE:
+if args[Arg.CYTHONIZE]:
     from Cython.Build import cythonize
     extensions = cythonize(extensions)
 
