@@ -30,7 +30,6 @@
 // Conversion in the RGB -> HUSL direction
 //
 
-
 static double *allocate_hsl(size_t size);
 static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size);
 static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size);
@@ -64,6 +63,14 @@ static double min_chroma_length(
     double top2, double top2_b, double sintheta, double costheta);
 #endif
 
+
+// Choose LUV -> Hue function based on compile flag
+#if defined(USE_HUE_LUT)
+#include <_hue_lookup.h>
+static double interpolate_hue(double, double, double);
+#elif defined(USE_HUE_ATAN)
+static double atan_approx(double);
+#endif
 
 // Constants for white pixels
 static const double WHITE_HUE = 19.916405993809086;
@@ -199,16 +206,92 @@ static inline void to_luv(double x, double y, double z,
 }
 
 
+
+// Define to_hue based on compile flags
 // Returns the HUSL hue, the angle in degrees between
 // V and U of the  CIELUV color space.
+#if defined(USE_HUE_LUT)
 static inline double to_hue(double u, double v) {
-    const double DEG_PER_RAD = 180.0 / M_PI;
+    const double z = v/u;
+    if (u > 0 && v > 0) {
+        const double idx = z/vu_idx_step_00;
+        const uint_fast16_t idx_floor = floor(idx);
+        return interpolate_hue(
+            hue_table_00[idx_floor], hue_table_00[idx_floor+1], idx-idx_floor);
+    } else if (u > 0 && v < 0) {
+        const double idx = z/vu_idx_step_01;
+        const uint_fast16_t idx_floor = floor(idx);
+        return interpolate_hue(
+            hue_table_00[idx_floor], hue_table_01[idx_floor+1], idx-idx_floor);
+    } else if (u < 0 && v > 0) {
+        const double idx = z/vu_idx_step_10;
+        const uint_fast16_t idx_floor = floor(idx);
+        return interpolate_hue(
+            hue_table_00[idx_floor], hue_table_10[idx_floor+1], idx-idx_floor);
+    } else {
+        const double idx = z/vu_idx_step_11;
+        const uint_fast16_t idx_floor = floor(idx);
+        return interpolate_hue(
+            hue_table_00[idx_floor], hue_table_11[idx_floor+1], idx-idx_floor);
+    }
+} 
+
+
+static inline double interpolate_hue(
+        double val_1, double val_2, double delta_idx) {
+    const double val_lo = fmin(val_1, val_2);
+    return val_lo + delta_idx*(fabs(val_2 - val_1));
+}
+
+
+// Uses a fast approximation of atan2 if |V/U| < 1.0
+#elif defined(USE_ATAN_HUE)
+
+
+static const double DEG_PER_RAD = 180.0 / M_PI;
+static inline double to_hue(double u, double v) {
+    double z = v/u;
+    const uint_fast8_t signs = ((v < 0) << 1) | (u < 0);
+    switch(signs) {
+        case 0b00:  // u is +, v is +
+            return atan_approx(z)*DEG_PER_RAD;
+        case 0b01:  // u is -, v is +
+            return atan_approx(z)*DEG_PER_RAD + 180;
+        case 0b10:  // u is +, v is -
+            return atan_approx(z)*DEG_PER_RAD + 360;
+        case 0b11:  // u is -, v is -
+            return atan_approx(z)*DEG_PER_RAD + 180;
+        default:
+            return 0.0;
+    }
+}
+
+static const double M_PI_4 = M_PI/4;
+
+// a fast approximation of atan for |V/U| < 1
+static inline double atan_approx(double z) {
+    if (fabs(z) < 1) {
+        return M_PI_4*z - z*(fabs(z) - 1)*(0.2447 + 0.0663*fabs(z));
+    } else {
+        return atanf(z);
+    }
+}
+
+
+// The standard to_hue function uses an expensive call to atan2
+#else
+
+
+static const double DEG_PER_RAD = 180.0 / M_PI;
+
+static inline double to_hue(double u, double v) {
     double hue = atan2_approx(v, u) * DEG_PER_RAD;
-    if (hue < 0.0f) {
-        hue += 360;  // negative angles wrap around into higher hues
+    if (hue < 0) {
+        hue += 360;
     }
     return hue;
 }
+#endif
 
 
 // Returns a saturation value from UV (of CIELUV), lightness, and hue.
@@ -249,13 +332,13 @@ static inline double max_chroma(double lightness, double hue) {
     double l_norm = l_idx - l_idx_floor;  // our "y" value
     double h_inv = 1 - h_norm;  // (1-x)
     double l_inv = 1 - l_norm;  // (1-y)
-
+    
     // Compute f(x,y) = f(0,0)(1-x)(1-y) + f(1,0)x(1-y) + f(0,1)(1-x)y + f(1,1)xy
-    double interp = chroma_00*h_inv*l_inv +
-                    chroma_10*h_norm*l_inv +
-                    chroma_01*h_inv*l_norm +
-                    chroma_11*h_norm*l_norm;
-    return interp;
+    double interp_sq = chroma_00*h_inv*l_inv +
+                       chroma_10*h_norm*l_inv +
+                       chroma_01*h_inv*l_norm +
+                       chroma_11*h_norm*l_norm;
+    return interp_sq;
 } 
 
 
@@ -337,26 +420,16 @@ static double to_light(double y_value) {
     uint_fast16_t idx_floor = floor(idx);
     idx_floor = fmax(0, fmin(L_FULL_TABLE_SIZE-2, idx_floor));
     const double idx_diff = idx - idx_floor;
+    /*
     if (idx_diff < 0.1) {
         return light_table_big[idx_floor];
     } else if (idx_diff > 0.9) {
         return light_table_big[idx_floor+1];
     }
+    */
     const double light_lo = light_table_big[idx_floor];
     const double light_hi = light_table_big[idx_floor+1];
-    double actual;
-    if (y_value > EPSILON) {
-        actual = 116 * cbrt(y_value / REF_Y) - 16;
-    } else {
-        actual = (y_value / REF_Y) * KAPPA;
-    }
-    double interp = interpolate_light(light_hi, light_lo, idx-idx_floor);
-    if (fabs(actual - interp) > 0.05) {
-        printf("y=%f-> lhi: %f llo %f idxf: %d, idx: %f, idxdiff: %f\n",
-               y_value, light_hi, light_lo, idx_floor, idx, idx-idx_floor);
-        printf("  actual=%f interp=%f\n", actual, interp);
-    }
-    return interpolate_light(light_hi, light_lo, idx-idx_floor);
+    return interpolate_light(light_hi, light_lo, idx_diff);
 }
 
 // Linear interpolation. Allows for smaller, more cache-friendly light tables.
@@ -380,7 +453,7 @@ static inline double to_light(double y_value) {
 
 
 #if defined(USE_ATAN2_APPROX)
-// Courtesy of https://gist.github.com/volkansalma/2972237
+// http://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization
 static double atan2_approx(double y, double x) {
     const double PI_4 = M_PI / 4.0;
     const double PI_3_4 = 3.0 * M_PI / 4.0;
@@ -401,6 +474,37 @@ static double atan2_approx(double y, double x) {
     }
 }
 
+
+#elif defined(USE_ATAN2_APPROX2)
+#define PI_FLOAT     3.14159265f
+#define PIBY2_FLOAT  1.5707963f
+// |error| < 0.005
+double atan2_approx( double y, double x )
+{
+    if ( x == 0.0f )
+    {
+        if ( y > 0.0f ) return PIBY2_FLOAT;
+        if ( y == 0.0f ) return 0.0f;
+        return -PIBY2_FLOAT;
+    }
+    double atan;
+    double z = y/x;
+    if ( fabs( z ) < 1.0f )
+    {
+        atan = z/(1.0f + 0.28f*z*z);
+        if ( x < 0.0f )
+        {
+            if ( y < 0.0f ) return atan - PI_FLOAT;
+            return atan + PI_FLOAT;
+        }
+    }
+    else
+    {
+        atan = PIBY2_FLOAT - z/(z*z + 0.28f);
+        if ( y < 0.0f ) return atan - PI_FLOAT;
+    }
+    return atan;
+}
 
 #else
 static double atan2_approx(double y, double x) {
