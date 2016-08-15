@@ -17,7 +17,7 @@ def to_rgb_int(dtype, arr: ndarray):
     if not np.issubdtype(arr.dtype, dtype.base):
         # scale float arrays in interval [0,1] to [0,255]
         arr = scale_up_rgb(arr)
-    return to_dtype(dtype, arr)
+    return to_dtype(dtype, np.abs(arr))
 
 
 def to_rgb_float(dtype, arr: ndarray):
@@ -33,7 +33,7 @@ def scale_up_rgb(rgb: ndarray):
 
 
 def scale_down_rgb(rgb: ndarray):
-    """Convert RGB down to [0, 1.0] range"""
+    """Convert RGB down to [0, 1] range"""
     return rgb/255.0
 
 
