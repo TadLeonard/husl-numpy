@@ -1,4 +1,4 @@
-// nphusl/_light_lookup.c: generated with `python gen_light_table.py -y 0.070 0.350 -t double -o nphusl/_light_lookup -s 1024`
+// nphusl/_light_lookup.c: generated with `python lookup_generators/gen_light_table.py -y 0.070 0.350 -t double -o nphusl/_light_lookup -s 1024`
 
 #include <_light_lookup.h>
 

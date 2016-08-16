@@ -1,4 +1,4 @@
-// nphusl/_chroma_lookup.h: generated with `python gen_chroma_table.py -t double -o nphusl/_chroma_lookup -s 256`
+// nphusl/_chroma_lookup.h: generated with `python lookup_generators/gen_chroma_table.py -t double -o nphusl/_chroma_lookup -s 256`
 
 
 extern const unsigned short C_TABLE_SIZE;
