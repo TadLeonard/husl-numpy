@@ -81,10 +81,12 @@ Quadrant 4: 180-270 degrees (V-, U-)
   * V/U quotient from 0 (180 degrees) to INF (270 degrees)
   * realistically, V/U is in [0, N]
 """
+VU_LARGE = 100.0
+VU_SMALL = 1.0
 max_vu_quotient = 100
 vu_00_idx_step = max_vu_quotient/N
-vu_01_idx_step = max_vu_quotient/N
-vu_10_idx_step = max_vu_quotient/N
+vu_01_idx_step = -max_vu_quotient/N
+vu_10_idx_step = -max_vu_quotient/N
 vu_11_idx_step = max_vu_quotient/N
 table_index_steps = [vu_00_idx_step,
                      vu_01_idx_step,
@@ -99,6 +101,10 @@ for index in table_indices:
     print("extern const h_table_t vu_idx_step_{};".format(postfix), file=out_h)
     print("const h_table_t vu_idx_step_{} = {};".format(
           postfix, vustep), file=out_c)
+
+# declare V/U table boundaries
+print("extern const h_table_t VU_LARGE;", file=out_h)
+print("extern const h_table_t VU_SMALL;", file=out_h)
 
 # build four hue tables for U+V+/U+V-/U-V+/U-V- or 00/01/10/11 cases
 # another way of looking at it is we're making a table for each of the
@@ -123,6 +129,10 @@ for index in table_indices:
         vu_value = i*vu_step
         hue_value = to_hue(vu_value)
         hue_table[i] = vu_value, hue_value
+
+# initialize table boundaries
+print("const h_table_t VU_LARGE = {:f};".format(VU_LARGE), file=out_c)
+print("const h_table_t VU_SMALL = {:f};".format(VU_SMALL), file=out_c)
 
 # some statistics on the lookup tables to gauge their accuracy
 for index in table_indices:

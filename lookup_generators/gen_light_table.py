@@ -77,7 +77,7 @@ for i, stop in enumerate(y_steps):
     # NOTE: this uniform range works because L increases monitonically with y
     step = (stop - start) / N
     uniform_y = np.arange(start, stop, step=step)
-    light_lookup = nphusl._nphusl._f(uniform_y)
+    light_lookup = nphusl.nphusl._to_light(uniform_y)
     big_light_lookup[i*N: i*N+N] = light_lookup
 
     # collect statistics on LUT to gauge its usefulness
@@ -108,7 +108,7 @@ print("};\n", file=out_c)
 
 # initialize simple linear table
 uniform_y = np.arange(0.0, 1.0, step=1.0/N)
-linear_light_lookup = nphusl._nphusl._f(uniform_y)
+linear_light_lookup = nphusl.nphusl._to_light(uniform_y)
 
 # collect statistics on linear LUT to gauge its usefulness
 avg_y_thresh = \
