@@ -1,6 +1,7 @@
 import sys
 assert sys.version_info >= (3, 4), "Python 3.4+ only!"
 
+from collections import namedtuple
 from enum import Enum
 from pprint import pformat
 from setuptools import setup, Extension
@@ -8,24 +9,30 @@ from nphusl import __version__
 import numpy
 
 
-class Arg(str, Enum):
-    CYTHONIZE = "--cythonize"
-    NO_CYTHON_EXT = "--no-cython-ext"
-    NO_SIMD_EXT = "--no-simd-ext"
-    NO_LIGHT_LUT = "--no-light-lut"
-    NO_CHROMA_LUT = "--no-chroma-lut"
-    NO_HUE_LUT = "--no-hue-lut"
-    NO_ATAN2_APPROX = "--no-atan2-approx"
+CompileArg = namedtuple("CompileArg", "setup_arg alternative")
+
+
+class Arg(CompileArg, Enum):
+    CYTHONIZE = CompileArg("--cythonize", None)
+    NO_CYTHON_EXT = CompileArg("--no-cython-ext", None)
+    NO_SIMD_EXT = CompileArg("--no-simd-ext", None)
+    NO_LIGHT_LUT = CompileArg(
+        "--no-light-lut", "-DUSE_LIGHT_LUT")
+    NO_CHROMA_LUT = CompileArg(
+        "--no-chroma-lut", "-DUSE_CHROMA_LUT")
+    NO_HUE_ATAN2_APPROX = CompileArg(
+        "--no-hue-atan2-approx", "-DUSE_HUE_ATAN2_APPROX")
 
 
 args = {}
 for arg in Arg:
-    arg_enabled = arg.value in sys.argv
+    arg_enabled = arg.setup_arg in sys.argv
     args[arg] = arg_enabled
     if arg_enabled:
-        sys.argv.remove(arg.value)
+        sys.argv.remove(arg.setup_arg)
 
-print("Application options:\n{}".format(pformat(args)))
+print("Application options:\n{}".format(
+    pformat({k.name: v for k, v in args.items()})))
 
 url = "https://github.com/TadLeonard/husl-numpy"
 download = "{}/archive/{}.tar.gz".format(url, __version__)
@@ -92,15 +99,14 @@ simd_compile_args = [
      "-ftree-vectorize",
      "-ftree-vectorizer-verbose=2",
      "-std=c99",
+     "-mtune=native",
 ] + cython_compile_args
 if not args[Arg.NO_LIGHT_LUT]:
-    simd_compile_args.append("-DUSE_LIGHT_LUT")
+    simd_compile_args.append(Arg.NO_LIGHT_LUT.alternative)
 if not args[Arg.NO_CHROMA_LUT]:
-    simd_compile_args.append("-DUSE_CHROMA_LUT")
-if not args[Arg.NO_HUE_LUT]:
-    simd_compile_args.append("-DUSE_HUE_LUT")
-if not args[Arg.NO_ATAN2_APPROX]:
-    simd_compile_args.append("-DUSE_ATAN2_APPROX")
+    simd_compile_args.append(Arg.NO_CHROMA_LUT.alternative)
+if not args[Arg.NO_HUE_ATAN2_APPROX]:
+    simd_compile_args.append(Arg.NO_HUE_ATAN2_APPROX.alternative)
 
 
 cython_ext = Extension("nphusl._cython_opt",
@@ -114,8 +120,7 @@ simd_ext = Extension("nphusl._simd_opt",
                               "nphusl/_linear_lookup.c",
                               "nphusl/_scale_const.c",
                               "nphusl/_light_lookup.c",
-                              "nphusl/_chroma_lookup.c",
-                              "nphusl/_hue_lookup.c"],
+                              "nphusl/_chroma_lookup.c",],
                      extra_compile_args=simd_compile_args,
                      include_dirs=["nphusl/"],
                      extra_link_args=["-fopenmp"])
