@@ -40,25 +40,26 @@ print("""// {}: generated with `python {}`
 """.format(out_c.name, " ".join(sys.argv), out_header_name), file=out_c)
 
 # declare table types, sizes
-print("extern const unsigned short C_TABLE_SIZE;", file=out_h)
+print("const unsigned short C_TABLE_SIZE;", file=out_h)
 print("const unsigned short C_TABLE_SIZE = {};".format(N), file=out_c)
 print("typedef {} c_table_t;".format(table_type), file=out_h)
 
 # build chroma table
-h_idx_step = 360.0 / N
-l_idx_step = 100.0 / N
-hues = np.arange(0, 360, step=h_idx_step)
-lights = np.arange(0, 100, step=l_idx_step)
+h_idx_step = 360.0 / (N-1)
+l_idx_step = 100.0 / (N-1)
+hues = np.arange(0, 360+h_idx_step, step=h_idx_step)
+lights = np.arange(0, 100+l_idx_step, step=l_idx_step)
 chroma_table = np.zeros(shape=(N, N), dtype=table_type)
 for i, hue in enumerate(hues):
     for j, light in enumerate(lights):
-        chroma_table[i][j] = husl.max_chroma_for_LH(light, hue)
-chroma_table = np.nan_to_num(chroma_table)  # NaN @ hue=0
+        if light != 0:  # NaN @ light=0, where chroma is always 0
+            chroma_table[i][j] = husl.max_chroma_for_LH(light, hue)
+#chroma_table = np.nan_to_num(chroma_table)  # NaN @ hue=0
 
 # declare table, consts
 print("const c_table_t chroma_table[{}][{}];".format(N, N), file=out_h)
-print("extern const c_table_t h_idx_step;", file=out_h)
-print("extern const c_table_t l_idx_step;", file=out_h)
+print("const c_table_t h_idx_step;", file=out_h)
+print("const c_table_t l_idx_step;", file=out_h)
 print("const c_table_t h_idx_step = {};".format(h_idx_step), file=out_c)
 print("const c_table_t l_idx_step = {};".format(l_idx_step), file=out_c)
 
@@ -80,7 +81,7 @@ alignment = "__attribute__((aligned({})))".format(alignment.N)
 print("const c_table_t {} chroma_table[{}][{}] = {{".format(
       alignment, N, N), file=out_c)
 for i, hue in enumerate(hues):
-    print("  // Index {}: Chromas for hue={} and luminance in [0, 100)"
+    print("  // Index {}: Chromas for hue={} and luminance in [0, 100]"
           .format(i, hue), file=out_c)
     print("  {", file=out_c)
     print("    ", end="", file=out_c)
