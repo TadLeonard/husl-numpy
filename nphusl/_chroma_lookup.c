@@ -11,7 +11,7 @@ const c_table_t l_idx_step = 0.390625;
 // Max delta across hue: 3.5008089061528955
 // Ave delta across luminance (2nd axis): 0.8613114275362406
 // Max delta across luminance: 2.3793368642082373
-const c_table_t chroma_table[256][256] = {
+const c_table_t __attribute__((aligned(64))) chroma_table[256][256] = {
   // Index 0: Chromas for hue=0.0 and luminance in [0, 100)
   {
       0.000,   1.075,   2.150,   3.225,   4.301,   5.376,   6.451,   7.526,  // L=0.000 to L=2.734

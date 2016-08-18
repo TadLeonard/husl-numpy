@@ -3,6 +3,6 @@
 
 extern const unsigned short C_TABLE_SIZE;
 typedef double c_table_t;
-extern const c_table_t chroma_table[256][256];
+const c_table_t chroma_table[256][256];
 extern const c_table_t h_idx_step;
 extern const c_table_t l_idx_step;
