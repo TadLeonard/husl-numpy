@@ -15,7 +15,7 @@ import husl  # the original husl-colors.org library
 from enum import Enum
 
 
-np.set_printoptions(threshold=np.inf)
+np.set_printoptions(threshold=np.inf, precision=2)
 
 
 ### Tests for conversion in the RGB -> HUSL direction
@@ -74,7 +74,7 @@ def test_to_husl_2d():
     husl_new = nphusl.to_husl(img)
     for row in range(img.shape[0]):
         husl_old = husl.rgb_to_husl(*float_img[row])
-        assert _diff_husl(husl_new[row], husl_old)
+        _diff_husl(husl_new[row], husl_old)
 
 
 @try_optimizations()
@@ -84,8 +84,8 @@ def test_to_husl_3d():
     husl_new = nphusl.to_husl(img)
     for row in range(img.shape[0]):
         for col in range(img.shape[1]):
-            husl_old = _ref_to_husl(float_img[row, col])
-            assert _diff_husl(husl_new[row, col], husl_old)
+            husl_old = husl.rgb_to_husl(*float_img[row, col])
+            _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
@@ -98,7 +98,7 @@ def test_to_husl_gray():
     for row in range(gray_arr.shape[0]):
         for col in range(gray_arr.shape[1]):
             husl_old = husl.rgb_to_husl(*img[row, col])
-            assert _diff_husl(husl_new[row, col], husl_old)
+            _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
@@ -117,7 +117,7 @@ def test_to_husl_gray_3d():
             a = np.asarray(a)
             b = np.asarray(b)
             i = row*img.shape[1]*3 + col*3
-            assert _diff_husl(husl_new[row, col], husl_old)
+            _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.cython, Opt.numexpr)
@@ -154,7 +154,7 @@ def test_rgb_to_husl():
     for row in range(rgb_arr.shape[0]):
         for col in range(rgb_arr.shape[1]):
             husl_old = _ref_to_husl(rgb_arr[row, col])
-            assert _diff_husl(husl_new[row, col], husl_old)
+            _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations()
@@ -165,7 +165,7 @@ def test_rgb_to_husl_3d():
     for row in range(husl_new.shape[0]):
         for col in range(husl_new.shape[1]):
             husl_old = husl.rgb_to_husl(*float_arr[row, col])
-            assert _diff_husl(husl_new[row, col], husl_old)
+            _diff_husl(husl_new[row, col], husl_old)
 
 
 @try_optimizations(Opt.numexpr)
@@ -174,7 +174,7 @@ def test_lch_to_husl():
     lch_arr = _nphusl._rgb_to_lch(rgb_arr)
     hsl_from_lch_arr = _nphusl._lch_to_husl(lch_arr)
     hsl_from_rgb_arr = _nphusl._rgb_to_husl(rgb_arr)
-    assert _diff_husl(hsl_from_lch_arr, hsl_from_rgb_arr)
+    _diff_husl(hsl_from_lch_arr, hsl_from_rgb_arr)
     for i in range(rgb_arr.shape[0]):
         old_lch = _ref_to_lch(rgb_arr[i, 0])
         assert _diff(lch_arr[i, 0], old_lch)
@@ -553,7 +553,7 @@ def test_to_husl_rgba():
     new_rgb = rgb * 0.5
     hsl_from_rgba = nphusl.to_husl(rgba)
     hsl_from_rgb = nphusl.to_husl(new_rgb)
-    assert _diff_husl(hsl_from_rgba, hsl_from_rgb)
+    _diff_husl(hsl_from_rgba, hsl_from_rgb)
 
 
 def test_cython_max_chroma():
@@ -680,8 +680,8 @@ def test_to_husl_1d_grayscale():
     expected = [[2.88467242e+02, 1.02865661e-05, 9.30666400],
                 [2.88467242e+02, 1.02865661e-05, 9.30666400]]
     assert np.all(hsl_from_gray == hsl_from_rgb)
-    assert _diff_husl(hsl_from_gray, expected)
-    assert _diff_husl(hsl_from_rgb, expected)
+    _diff_husl(hsl_from_gray, expected)
+    _diff_husl(hsl_from_rgb, expected)
 
 
 def _ref_to_husl(rgb):
@@ -697,16 +697,18 @@ def _ref_to_lch(rgb):
 def _diff(a, b, diff=0.20):
     a = np.asarray(a)
     b = np.asarray(b)
-    return np.all(np.abs(a - b) <= diff)
+    assert np.all(np.abs(a - b) <= diff)
 
 
 def _diff_husl(a, b, max_rgb_diff=1):
     """Checks HUSL conversion by converting HUSL to RGB.
     Both HUSL triplets/arrays should produce the same RGB
     triplet/array."""
-    rgb_a = nphusl.to_rgb(a)
-    rgb_b = nphusl.to_rgb(b)
-    return _diff(rgb_a, rgb_b, diff=max_rgb_diff)
+    rgb_a = nphusl.to_rgb(a).astype(np.int)
+    rgb_b = nphusl.to_rgb(b).astype(np.int)
+    fail_msg = "HSL diff: {} (HSL-A: {} HSL-B: {})".format(
+                a - b, a, b)
+    assert np.all(np.abs(rgb_a - rgb_b) <= max_rgb_diff), fail_msg
 
 
 IMG_CACHED = [None]
