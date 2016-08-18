@@ -49,11 +49,19 @@ print("const unsigned short L_FULL_TABLE_SIZE = {};".format(N*3), file=out_c)
 print("typedef {} l_table_t;".format(table_type), file=out_h)
 
 # declare tables, Y value steps
+y_ranges = []
 for i, step in enumerate(y_steps[:-1]):
     print("const l_table_t y_thresh_{};".format(i), file=out_h)
+
 start = 0.0
 for i, step in enumerate(y_steps):
-    y_idx_step = (step - start) / N
+    if i == len(y_steps) - 1:
+        y_idx_step = (step - start) / (N-1)
+        step += y_idx_step
+    else:
+        y_idx_step = (step - start) / N
+    y_range = np.arange(start, step, step=y_idx_step)
+    y_ranges.append(y_range)
     print("const l_table_t light_table_{}[{}];".format(i, N), file=out_h)
     print("const l_table_t y_idx_step_{};".format(i), file=out_h)
     print("const l_table_t y_idx_step_{} = {};".format(i, y_idx_step), file=out_c)
@@ -70,11 +78,9 @@ print("", file=out_c)
 big_light_lookup = np.zeros((N_BIG,), dtype=float)
 start = 0.0
 alignment = "__attribute__((aligned({})))".format(alignment.N)
-for i, stop in enumerate(y_steps):
-    # Generate our LUT from a range of Y-values in [0, 1.0)
+for i, uniform_y in enumerate(y_ranges):
+    # Generate our LUT from a range of Y-values in [0, 1.0]
     # NOTE: this uniform range works because L increases monitonically with y
-    step = (stop - start) / N
-    uniform_y = np.arange(start, stop, step=step)
     light_lookup = nphusl.nphusl._to_light(uniform_y)
     big_light_lookup[i*N: i*N+N] = light_lookup
 
@@ -90,7 +96,9 @@ for i, stop in enumerate(y_steps):
         max_light_diff/2), file=out_c)
 
     # write out LUT initializer
-    print("// Light values for {} <= Y < {}".format(start, stop), file=out_c)
+    start = uniform_y[0]
+    stop = uniform_y[-1]
+    print("// Luminance for Y in [{:0.4f}, {:0.4f}]".format(start, stop), file=out_c)
     print("const l_table_t {} light_table_{}[{}] = {{".format(
           alignment, i, N), file=out_c)
     for i, l in enumerate(light_lookup):
@@ -101,6 +109,16 @@ for i, stop in enumerate(y_steps):
     start = stop
 
 # initialize big segmented table (all values concatenated into one)
+light_diff = big_light_lookup[1:] - big_light_lookup[:-1]
+avg_light_diff = np.sum(light_diff) / (N-1)
+max_light_diff = np.max(light_diff)
+print("// Avg light value step size: {:0.4f}".format(
+    avg_light_diff), file=out_c)
+print("// Max light value step size: {:0.4f}".format(
+    max_light_diff), file=out_c)
+print("// Max light value error: {:0.4f}".format(
+    max_light_diff/2), file=out_c)
+print("// Luminance values for Y in [0, 1]", file=out_c)
 print("const l_table_t {} light_table_big[{}] = {{".format(
       alignment, N_BIG), file=out_c)
 for i, l in enumerate(big_light_lookup):
