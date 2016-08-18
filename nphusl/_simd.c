@@ -11,9 +11,14 @@
 #include <stdio.h>
 #include <stdint.h>
  
+
 #ifdef _OPENMP
+// Min array size for OpenMP parallelized loops
+#define MIN_IMG_SIZE_THREADED 30*30*3
 #include <omp.h>
 #endif
+
+
 #include <_simd.h>
 #include <_linear_lookup.h>
 #include <_scale_const.h>
@@ -23,12 +28,12 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#define MIN_IMG_SIZE_THREADED 30*30*3  // min array size for OpenMP threads
 
 
-//
+////////////////////////////////////////////
 // Conversion in the RGB -> HUSL direction
-//
+////////////////////////////////////////////
+
 
 static double *allocate_hsl(size_t size);
 static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size);
@@ -43,20 +48,17 @@ static double to_light(double);
 static double to_hue(double u, double v);
 static double to_saturation(double, double, double, double);
 static double max_chroma(double, double);
-static double atan2_approx(double, double);
 
 
 // Enable luminance lookup interpolation based on compile flag
 #if defined(USE_LIGHT_LUT)
 #include <_light_lookup.h>
-static double interpolate_light(double, double, double);
 #endif
 
 
 // Choose LUV -> LCH croma function based on compile flag
 #if defined(USE_CHROMA_LUT)
 #include <_chroma_lookup.h>
-static double interpolate_chroma(double, double, double);
 #else
 static double min_chroma_length(
     int iteration, double lightness, double sub1, double sub2,
@@ -65,12 +67,13 @@ static double min_chroma_length(
 
 
 // Choose LUV -> Hue function based on compile flag
-#if defined(USE_HUE_LUT)
-#include <_hue_lookup.h>
-static double interpolate_hue(double, double, double);
-#elif defined(USE_HUE_ATAN)
-static double atan_approx(double);
+#if defined(USE_HUE_ATAN_APPROX)
+static double atan_approx(double, double);
+static double atan2_approx(double, double);
+#elif defined(USE_HUE_ATAN2_APPROX)
+static double atan2_approx(double, double);
 #endif
+
 
 // Constants for white pixels
 static const double WHITE_HUE = 19.916405993809086;
@@ -84,7 +87,6 @@ static const double WHITE_LIGHTNESS = 100.0;
 double* rgb_to_husl_nd(uint8_t *rgb, size_t size) {
     // HUSL array of H, S, L triplets to be returned
     double *hsl = allocate_hsl(size);
-
     #pragma omp parallel \
         default(none) shared(rgb, hsl, size) \
         if (size >= MIN_IMG_SIZE_THREADED)
@@ -93,15 +95,14 @@ double* rgb_to_husl_nd(uint8_t *rgb, size_t size) {
     #pragma omp barrier  // ensure LUV elements are done being written
     rgbluv_to_husl_nd(rgb, hsl, size);
     } // end OMP parallel
-
     return hsl;
 }
 
 
 // Aligned malloc for HUSL double arrays
 static double* __attribute__((alloc_size(1))) allocate_hsl(size_t size) {
-    double *hsl __attribute__((aligned(__BIGGEST_ALIGNMENT__))) = \
-        (double*) malloc(size*sizeof(double));
+    double *hsl __attribute__((aligned(64))) = \
+        (double*) malloc(size * sizeof(double));
     if (hsl == NULL) {
         fprintf(stderr, "Error: Couldn't allocate memory for HUSL array\n");
         exit(EXIT_FAILURE);
@@ -133,41 +134,6 @@ static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size) {
         to_xyz(rl, gl, bl, &x, &y, &z);
         to_luv(x, y, z, l, u, v);
     }
-}
-
-
-// Convert CIE-LUV to HUSL. The original RGB array is still passed in
-// for the handling of boundary conditions (white and black pixels).
-static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size) {
-    #pragma omp for schedule(guided)
-    for (unsigned int i = 0; i < size; i+=3) {
-        double *hsl_p = luv_hsl + i;
-        uint8_t *rgb_p = rgb + i;
-
-        const uint8_t r = *rgb_p;
-        const uint8_t g = *(++rgb_p);
-        const uint8_t b = *(++rgb_p);
-
-        if (r == 255 && g == 255 && b == 255) {
-            *(hsl_p) = WHITE_HUE;
-            *(++hsl_p) = WHITE_SATURATION;
-            *(++hsl_p) = WHITE_LIGHTNESS;
-        } else if (!r && !g && !b) {
-            *(hsl_p) = 0;
-            *(++hsl_p) = 0;
-            *(++hsl_p) = 0;
-        } else {
-            // This is the most expensive part of the RGB->HUSL chain
-            const double l = *hsl_p;
-            const double u = *(hsl_p+1);
-            const double v = *(hsl_p+2);
-            const double h = to_hue(u, v);
-            const double s = to_saturation(l, u, v, h);
-            *(hsl_p) = h;
-            *(++hsl_p) = s;
-            *(++hsl_p) = l;
-        }
-    } // end OMP for
 }
 
 
@@ -206,86 +172,83 @@ static inline void to_luv(double x, double y, double z,
 }
 
 
+// Convert CIE-LUV to HUSL. The original RGB array is still passed in
+// for the handling of boundary conditions (white and black pixels).
+static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size) {
+    #pragma omp for schedule(guided)
+    for (unsigned int i = 0; i < size; i+=3) {
+        double *hsl_p = luv_hsl + i;
+        uint8_t *rgb_p = rgb + i;
 
-// Define to_hue based on compile flags
-// Returns the HUSL hue, the angle in degrees between
-// V and U of the  CIELUV color space.
-#if defined(USE_HUE_LUT)
-static inline double to_hue(double u, double v) {
-    const double z = v/u;
-    if (u > 0 && v > 0) {
-        const double idx = z/vu_idx_step_00;
-        const uint_fast16_t idx_floor = floor(idx);
-        return interpolate_hue(
-            hue_table_00[idx_floor], hue_table_00[idx_floor+1], idx-idx_floor);
-    } else if (u > 0 && v < 0) {
-        const double idx = z/vu_idx_step_01;
-        const uint_fast16_t idx_floor = floor(idx);
-        return interpolate_hue(
-            hue_table_00[idx_floor], hue_table_01[idx_floor+1], idx-idx_floor);
-    } else if (u < 0 && v > 0) {
-        const double idx = z/vu_idx_step_10;
-        const uint_fast16_t idx_floor = floor(idx);
-        return interpolate_hue(
-            hue_table_00[idx_floor], hue_table_10[idx_floor+1], idx-idx_floor);
-    } else {
-        const double idx = z/vu_idx_step_11;
-        const uint_fast16_t idx_floor = floor(idx);
-        return interpolate_hue(
-            hue_table_00[idx_floor], hue_table_11[idx_floor+1], idx-idx_floor);
-    }
-} 
+        const uint8_t r = *rgb_p;
+        const uint8_t g = *(++rgb_p);
+        const uint8_t b = *(++rgb_p);
 
-
-static inline double interpolate_hue(
-        double val_1, double val_2, double delta_idx) {
-    const double val_lo = fmin(val_1, val_2);
-    return val_lo + delta_idx*(fabs(val_2 - val_1));
+        if (r == 255 && g == 255 && b == 255) {
+            *(hsl_p) = WHITE_HUE;
+            *(++hsl_p) = WHITE_SATURATION;
+            *(++hsl_p) = WHITE_LIGHTNESS;
+        } else if (!r && !g && !b) {
+            *(hsl_p) = 0;
+            *(++hsl_p) = 0;
+            *(++hsl_p) = 0;
+        } else {
+            // This is the most expensive part of the RGB->HUSL chain
+            const double l = *hsl_p;
+            const double u = *(hsl_p+1);
+            const double v = *(hsl_p+2);
+            const double h = to_hue(u, v);
+            const double s = to_saturation(l, u, v, h);
+            *(hsl_p) = h;
+            *(++hsl_p) = s;
+            *(++hsl_p) = l;
+        }
+    } // end OMP for
 }
-
-
-// Uses a fast approximation of atan2 if |V/U| < 1.0
-#elif defined(USE_ATAN_HUE)
-
 
 static const double DEG_PER_RAD = 180.0 / M_PI;
-static inline double to_hue(double u, double v) {
-    double z = v/u;
-    const uint_fast8_t signs = ((v < 0) << 1) | (u < 0);
-    switch(signs) {
-        case 0b00:  // u is +, v is +
-            return atan_approx(z)*DEG_PER_RAD;
-        case 0b01:  // u is -, v is +
-            return atan_approx(z)*DEG_PER_RAD + 180;
-        case 0b10:  // u is +, v is -
-            return atan_approx(z)*DEG_PER_RAD + 360;
-        case 0b11:  // u is -, v is -
-            return atan_approx(z)*DEG_PER_RAD + 180;
-        default:
-            return 0.0;
-    }
-}
 
-static const double M_PI_4 = M_PI/4;
 
-// a fast approximation of atan for |V/U| < 1
-static inline double atan_approx(double z) {
-    if (fabs(z) < 1) {
-        return M_PI_4*z - z*(fabs(z) - 1)*(0.2447 + 0.0663*fabs(z));
-    } else {
-        return atanf(z);
+#if defined(USE_HUE_ATAN2_APPROX)
+
+static double to_hue(double u, double v) {
+    double hue = atan2_approx(v, u) * DEG_PER_RAD;
+    if (hue < 0) {
+        hue += 360;
     }
+    return hue;
 }
 
 
 // The standard to_hue function uses an expensive call to atan2
+// http://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization
+static double atan2_approx(double y, double x) {
+    static const double PI_4 = M_PI / 4.0;
+    static const double PI_3_4 = 3.0 * M_PI / 4.0;
+    double r, angle;
+    double abs_y = fabs(y) + 1e-10f;  // prevents divide-by-zero
+    if (x < 0.0f) {
+        r = (x + abs_y) / (abs_y - x);
+        angle = PI_3_4;
+    } else {
+        r = (x - abs_y) / (x + abs_y);
+        angle = PI_4;
+    }
+    angle += (0.1963f * r * r - 0.9817f) * r;
+    if (y < 0.0f) {
+        return -angle;  // negate if in quad III or IV
+    } else {
+        return angle;
+    }
+}
+
 #else
 
-
-static const double DEG_PER_RAD = 180.0 / M_PI;
+// Standard to_hue function
+// Uses a costly atan2 call
 
 static inline double to_hue(double u, double v) {
-    double hue = atan2_approx(v, u) * DEG_PER_RAD;
+    double hue = atan2f(v, u) * DEG_PER_RAD;
     if (hue < 0) {
         hue += 360;
     }
@@ -307,7 +270,6 @@ static inline double to_saturation(double l, double u, double v, double h) {
 // Uses the chroma lookup table to perform bilinear interpolation.
 // This LUT approach is important, because finding the max chroma is
 // the most expensive operation in RGB -> HUSL conversion.
-//
 // Reference (see Unit Square section):
 // https://en.wikipedia.org/wiki/Bilinear_interpolation
 static inline double max_chroma(double lightness, double hue) {
@@ -340,13 +302,6 @@ static inline double max_chroma(double lightness, double hue) {
                        chroma_11*h_norm*l_norm;
     return interp_sq;
 } 
-
-
-static inline double interpolate_chroma(
-        double val_1, double val_2, double delta_idx) {
-    const double val_lo = fmin(val_1, val_2);
-    return val_lo + delta_idx*(fabs(val_2 - val_1));
-}
 
 
 #else
@@ -403,13 +358,14 @@ static inline double min_chroma_length(
 // a faster-but-less-accurate lookup table approach will be used.
 
 #if defined(USE_LIGHT_LUT)
+
 // Return a light value from a CIEXYZ Y-value.
-// A light value lookup that accounts for a lack of precision
-// at low Y values. The lookup table is combined from three smaller
+// A light value lookup that accounts for a nonlinear
+// relationship between Y, the input, and L, the output.
+// The lookup table is combined from three smaller
 // tables, each with a different Y-value to L-value scale.
 static double to_light(double y_value) {
     double idx;
-    //unsigned short idx_floor;
     if (y_value < y_thresh_0) {
         idx = y_value/y_idx_step_0;
     } else if (y_value < y_thresh_1) {
@@ -417,28 +373,12 @@ static double to_light(double y_value) {
     } else {
         idx = ((y_value - y_thresh_1)/y_idx_step_2) + L_SEGMENT_SIZE*2;
     }
-    uint_fast16_t idx_floor = floor(idx);
-    idx_floor = fmax(0, fmin(L_FULL_TABLE_SIZE-2, idx_floor));
-    const double idx_diff = idx - idx_floor;
-    /*
-    if (idx_diff < 0.1) {
-        return light_table_big[idx_floor];
-    } else if (idx_diff > 0.9) {
-        return light_table_big[idx_floor+1];
-    }
-    */
-    const double light_lo = light_table_big[idx_floor];
-    const double light_hi = light_table_big[idx_floor+1];
-    return interpolate_light(light_hi, light_lo, idx_diff);
-}
-
-// Linear interpolation. Allows for smaller, more cache-friendly light tables.
-static inline double interpolate_light(
-        double light_lo, double light_hi, double delta_idx) {
-    return light_lo + delta_idx*(light_hi - light_lo);
+    const uint_fast16_t idx_floor = fmax(0, fmin(L_FULL_TABLE_SIZE-1, roundf(idx)));
+    return light_table_big[idx_floor];
 }
 
 #else
+
 // Return a light value from a CIEXYZ Y-value.
 // Uses an expensive branch/cube-root.
 static inline double to_light(double y_value) {
@@ -450,69 +390,6 @@ static inline double to_light(double y_value) {
 }
 
 #endif // end to_light conditional definition
-
-
-#if defined(USE_ATAN2_APPROX)
-// http://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization
-static double atan2_approx(double y, double x) {
-    const double PI_4 = M_PI / 4.0;
-    const double PI_3_4 = 3.0 * M_PI / 4.0;
-    double r, angle;
-    double abs_y = fabs(y) + 1e-10f;  // prevents divide-by-zero
-    if (x < 0.0f) {
-        r = (x + abs_y) / (abs_y - x);
-        angle = PI_3_4;
-    } else {
-        r = (x - abs_y) / (x + abs_y);
-        angle = PI_4;
-    }
-    angle += (0.1963f * r * r - 0.9817f) * r;
-    if (y < 0.0f) {
-        return -angle;  // negate if in quad III or IV
-    } else {
-        return angle;
-    }
-}
-
-
-#elif defined(USE_ATAN2_APPROX2)
-#define PI_FLOAT     3.14159265f
-#define PIBY2_FLOAT  1.5707963f
-// |error| < 0.005
-double atan2_approx( double y, double x )
-{
-    if ( x == 0.0f )
-    {
-        if ( y > 0.0f ) return PIBY2_FLOAT;
-        if ( y == 0.0f ) return 0.0f;
-        return -PIBY2_FLOAT;
-    }
-    double atan;
-    double z = y/x;
-    if ( fabs( z ) < 1.0f )
-    {
-        atan = z/(1.0f + 0.28f*z*z);
-        if ( x < 0.0f )
-        {
-            if ( y < 0.0f ) return atan - PI_FLOAT;
-            return atan + PI_FLOAT;
-        }
-    }
-    else
-    {
-        atan = PIBY2_FLOAT - z/(z*z + 0.28f);
-        if ( y < 0.0f ) return atan - PI_FLOAT;
-    }
-    return atan;
-}
-
-#else
-static double atan2_approx(double y, double x) {
-    return atan2f(y, x);
-}
-
-#endif // end atan2_approx conditional definition
-
 
 
 //
