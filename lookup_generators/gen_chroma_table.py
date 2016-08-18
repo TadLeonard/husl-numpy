@@ -10,6 +10,8 @@ import numpy as np
 import nphusl
 import husl
 
+import alignment
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--table-size", default=256, type=int)
@@ -54,7 +56,7 @@ for i, hue in enumerate(hues):
 chroma_table = np.nan_to_num(chroma_table)  # NaN @ hue=0
 
 # declare table, consts
-print("extern const c_table_t chroma_table[{}][{}];".format(N, N), file=out_h)
+print("const c_table_t chroma_table[{}][{}];".format(N, N), file=out_h)
 print("extern const c_table_t h_idx_step;", file=out_h)
 print("extern const c_table_t l_idx_step;", file=out_h)
 print("const c_table_t h_idx_step = {};".format(h_idx_step), file=out_c)
@@ -74,7 +76,9 @@ print("// Ave delta across luminance (2nd axis): {}".format(l_diff), file=out_c)
 print("// Max delta across luminance: {}".format(l_max), file=out_c)
 
 # write out table initializer
-print("const c_table_t chroma_table[{}][{}] = {{".format(N, N), file=out_c)
+alignment = "__attribute__((aligned({})))".format(alignment.N)
+print("const c_table_t {} chroma_table[{}][{}] = {{".format(
+      alignment, N, N), file=out_c)
 for i, hue in enumerate(hues):
     print("  // Index {}: Chromas for hue={} and luminance in [0, 100)"
           .format(i, hue), file=out_c)
@@ -90,3 +94,4 @@ for i, hue in enumerate(hues):
             l_start = light + l_idx_step
     print("\n  },", file=out_c)
 print("};", file=out_c)
+
