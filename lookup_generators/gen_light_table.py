@@ -8,8 +8,8 @@ import argparse
 
 import numpy as np
 import nphusl
-
 import alignment
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--table-size", default=256, type=int)
@@ -27,6 +27,7 @@ assert args.table_size < (1 << 16), "size must fit in 16 bits"
 N = args.table_size
 table_type = args.table_type
 is_int_type = "int" in table_type or "short" in table_type
+int_scale = args.int_scale if is_int_type else 1
 out = args.output_file_prefix
 y_steps = args.y_steps + [1.0]
 N_BIG = N * len(y_steps)
@@ -39,13 +40,13 @@ out_header_name = os.path.split(out_h.name)[-1] if out else "<stdout>"
 # write "generated with" message at tops of files
 print("""// {}: generated with `python {}`
 
-# include <stdint.h>
+#include <stdint.h>
 
-""".format(out_h.name, " ".join(sys.argv), N), file=out_h)
+#define LIGHT_SCALE {}
+""".format(out_h.name, " ".join(sys.argv), int_scale, N), file=out_h)
 print("""// {}: generated with `python {}`
 
 #include <{}>
-
 """.format(out_c.name, " ".join(sys.argv), out_header_name), file=out_c)
 
 # declare table types, sizes
@@ -58,7 +59,7 @@ print("typedef {} l_table_t;".format(table_type), file=out_h)
 # declare tables, Y value steps
 y_ranges = []
 for i, step in enumerate(y_steps[:-1]):
-    print("const l_table_t y_thresh_{};".format(i), file=out_h)
+    print("const double Y_THRESH_{};".format(i), file=out_h)
 
 start = 0.0
 for i, step in enumerate(y_steps):
@@ -71,9 +72,9 @@ for i, step in enumerate(y_steps):
     y_range = np.arange(start, step, step=y_idx_step)
     y_ranges.append(y_range)
     print("const l_table_t light_table_{}[{}];".format(i, N), file=out_h)
-    print("const l_table_t y_idx_step_{};".format(i), file=out_h)
-    print("const l_table_t y_idx_step_{} = {};".format(i, y_idx_step), file=out_c)
-    print("const l_table_t y_thresh_{} = {:0.04f};".format(i, step), file=out_c)
+    print("const double Y_IDX_STEP_{};".format(i), file=out_h)
+    print("const double Y_IDX_STEP_{} = {};".format(i, y_idx_step), file=out_c)
+    print("const double Y_THRESH_{} = {:0.04f};".format(i, step), file=out_c)
     start = step
 
 # declare big segmented light LUT
@@ -84,9 +85,9 @@ print("", file=out_c)
 # choose value formatter
 if is_int_type:
     def print_table_value(luminance):
-        luminance = int(round(luminance * args.int_scale))
+        luminance = int(round(luminance * int_scale))
         print("{:4d}".format(luminance), end=", ", file=out_c)
-    value_description = "(Luminance*{})".format(args.int_scale)
+    value_description = "(Luminance*{})".format(int_scale)
 else:
     def print_table_value(luminance):
         print("{:7.4f}".format(luminance), end=", ", file=out_c)
@@ -101,7 +102,6 @@ for i, uniform_y in enumerate(y_ranges):
     # Generate our LUT from a range of Y-values in [0, 1.0]
     # NOTE: this uniform range works because L increases monitonically with y
     light_lookup = nphusl.nphusl._to_light(uniform_y)
-    #light_lookup = np.round(light_lookup*args.int_scale).astype(np.uint16)
     big_light_lookup[i*N: i*N+N] = light_lookup
 
     # collect statistics on LUT to gauge its usefulness
@@ -123,9 +123,8 @@ for i, uniform_y in enumerate(y_ranges):
     print("const l_table_t {} light_table_{}[{}] = {{".format(
           alignment, i, N), file=out_c)
     for i, l in enumerate(light_lookup):
-        #print("{:7.4f}".format(l), end=", ", file=out_c)
         print_table_value(l)
-        if not (i+1) % 8 and i:
+        if not (i+1) % 16 and i:
             print("", file=out_c)
     print("};\n", file=out_c)
     start = stop
@@ -144,9 +143,8 @@ print("// {} for for Y in [0, 1]".format(value_description), file=out_c)
 print("const l_table_t {} light_table_big[{}] = {{".format(
       alignment, N_BIG), file=out_c)
 for i, l in enumerate(big_light_lookup):
-    #print("{:6.3f}".format(l), end=", ", file=out_c)
     print_table_value(l)
-    if not (i+1) % 8 and i:
+    if not (i+1) % 16 and i:
         print("", file=out_c)
 print("};\n", file=out_c)
 

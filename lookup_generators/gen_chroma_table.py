@@ -8,7 +8,6 @@ import argparse
 
 import numpy as np
 import nphusl
-
 import alignment
 
 
@@ -29,6 +28,7 @@ NL = args.light_axis_size
 NH = args.hue_axis_size
 table_type = args.table_type
 is_int_type = "int" in table_type or "short" in table_type
+int_scale = args.int_scale if is_int_type else 1
 out = args.output_file_prefix
 
 # set up file objects for .c and .h files
@@ -41,11 +41,11 @@ print("""// {}: generated with `python {}`
 
 #include <stdint.h>
 
-""".format(out_h.name, " ".join(sys.argv)), file=out_h)
+#define CHROMA_SCALE {}
+""".format(out_h.name, " ".join(sys.argv), int_scale), file=out_h)
 print("""// {}: generated with `python {}`
 
 #include <{}>
-
 """.format(out_c.name, " ".join(sys.argv), out_header_name), file=out_c)
 
 # declare table types, sizes
@@ -58,9 +58,9 @@ print("typedef {} c_table_t;".format(table_type), file=out_h)
 # choose value formatter
 if is_int_type:
     def print_table_value(chroma):
-        chroma = int(round(chroma * args.int_scale))
+        chroma = int(round(chroma * int_scale))
         print("{:5d}".format(chroma), end=", ", file=out_c)
-    value_description = "(Chroma*{})".format(args.int_scale)
+    value_description = "(Chroma*{})".format(int_scale)
 else:
     def print_table_value(chroma):
         print("{:7.3f}".format(chroma), end=", ", file=out_c)
@@ -81,10 +81,10 @@ for i, hue in enumerate(hues):
 
 # declare table, consts
 print("const c_table_t chroma_table[{}][{}];".format(NH, NL), file=out_h)
-print("const c_table_t h_idx_step;", file=out_h)
-print("const c_table_t l_idx_step;", file=out_h)
-print("const c_table_t h_idx_step = {};".format(h_idx_step), file=out_c)
-print("const c_table_t l_idx_step = {};".format(l_idx_step), file=out_c)
+print("const double H_IDX_STEP;", file=out_h)
+print("const double L_IDX_STEP;", file=out_h)
+print("const double H_IDX_STEP = {};".format(h_idx_step), file=out_c)
+print("const double L_IDX_STEP = {};".format(l_idx_step), file=out_c)
 
 # some statistics on the lookup tables to gauge their accuracy
 h_diff = np.abs(chroma_table[1:, :] - chroma_table[:-1, :])
@@ -113,8 +113,7 @@ for i, hue in enumerate(hues):
     l_start = 0
     for j, light in enumerate(lights):
         print_table_value(chroma_table[i][j])
-        #print("{:7.3f}".format(chroma_table[i][j]), end=", ", file=out_c)
-        if not (j+1) % 8 and j:
+        if not (j+1) % 16 and j:
             print(" // L={:0.3f} to L={:0.3f}".format(l_start, light), end="",
                   file=out_c)
             print("\n    ", end="", file=out_c)
