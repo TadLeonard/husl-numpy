@@ -18,9 +18,12 @@ parser.add_argument("-u",  "--hue-axis-size", default=256, type=int)
 parser.add_argument("-l", "--light-axis-size", default=256, type=int)
 parser.add_argument("-o", "--output-file-prefix", default=None)
 parser.add_argument("-t", "--table-type", default="float",
-                    choices=["double", "float"])
+                    choices=["double", "float", "ushort"])
+parser.add_argument("-i", "--int-scale", default=100, type=int)
 
 args = parser.parse_args()
+assert args.hue_axis_size < (1 << 16), "size must fit in 16 bits"
+assert args.light_axis_size < (1 << 16), "size must fit in 16 bits"
 NL = args.light_axis_size
 NH = args.hue_axis_size
 table_type = args.table_type
@@ -55,9 +58,11 @@ hues = np.arange(0, 360+h_idx_step, step=h_idx_step)
 lights = np.arange(0, 100+l_idx_step, step=l_idx_step)
 chroma_table = np.zeros(shape=(NH, NL), dtype=table_type)
 for i, hue in enumerate(hues):
-    for j, light in enumerate(lights):
-        if light != 0:  # NaN @ light=0, where chroma is always 0
-            chroma_table[i][j] = husl.max_chroma_for_LH(light, hue)
+    lch = np.zeros((lights.size, 3))
+    lch[..., 2] = hue
+    lch[..., 0] = lights
+    c = nphusl.nphusl._max_lh_chroma(lch[1:])  # skip L=0, avoid NaN
+    chroma_table[i, 1:] = c
 
 # declare table, consts
 print("const c_table_t chroma_table[{}][{}];".format(NH, NL), file=out_h)

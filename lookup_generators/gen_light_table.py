@@ -14,12 +14,14 @@ import alignment
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--table-size", default=256, type=int)
 parser.add_argument("-o", "--output-file-prefix", default=None)
-parser.add_argument("-t", "--table-type", default="float",
-                    choices=["double", "float"])
 parser.add_argument("-y", "--y-steps", default=[0.05, 0.3],
                     nargs="+", type=float)
+parser.add_argument("-t", "--table-type", default="float",
+                    choices=["double", "float", "ushort"])
+parser.add_argument("-i", "--int-scale", default=100, type=int)
 
 args = parser.parse_args()
+assert args.table_size < (1 << 16), "size must fit in 16 bits"
 N = args.table_size
 table_type = args.table_type
 out = args.output_file_prefix
@@ -58,6 +60,7 @@ for i, step in enumerate(y_steps):
     if i == len(y_steps) - 1:
         y_idx_step = (step - start) / (N-1)
         step += y_idx_step
+        y_idx_step = (step - start) / N
     else:
         y_idx_step = (step - start) / N
     y_range = np.arange(start, step, step=y_idx_step)
