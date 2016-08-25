@@ -17,13 +17,16 @@ parser.add_argument("-o", "--output-file-prefix", default=None)
 parser.add_argument("-y", "--y-steps", default=[0.05, 0.3],
                     nargs="+", type=float)
 parser.add_argument("-t", "--table-type", default="float",
-                    choices=["double", "float", "ushort"])
+                    choices=["double", "float", "unsigned short",
+                             "uint_fast16_t", "int", "uint16_t",
+                             "uint64_t"])
 parser.add_argument("-i", "--int-scale", default=100, type=int)
 
 args = parser.parse_args()
 assert args.table_size < (1 << 16), "size must fit in 16 bits"
 N = args.table_size
 table_type = args.table_type
+is_int_type = "int" in table_type or "short" in table_type
 out = args.output_file_prefix
 y_steps = args.y_steps + [1.0]
 N_BIG = N * len(y_steps)
@@ -35,6 +38,8 @@ out_header_name = os.path.split(out_h.name)[-1] if out else "<stdout>"
 
 # write "generated with" message at tops of files
 print("""// {}: generated with `python {}`
+
+# include <stdint.h>
 
 """.format(out_h.name, " ".join(sys.argv), N), file=out_h)
 print("""// {}: generated with `python {}`
@@ -76,6 +81,17 @@ print("const l_table_t light_table_big[{}];".format(
       N_BIG), file=out_h)
 print("", file=out_c)
 
+# choose value formatter
+if is_int_type:
+    def print_table_value(luminance):
+        luminance = int(round(luminance * args.int_scale))
+        print("{:4d}".format(luminance), end=", ", file=out_c)
+    value_description = "(Luminance*{})".format(args.int_scale)
+else:
+    def print_table_value(luminance):
+        print("{:7.4f}".format(luminance), end=", ", file=out_c)
+    value_description = "Luminance"
+
 # initializing segmented light LUTs
 # initialize little tables, collect values into big table
 big_light_lookup = np.zeros((N_BIG,), dtype=float)
@@ -85,6 +101,7 @@ for i, uniform_y in enumerate(y_ranges):
     # Generate our LUT from a range of Y-values in [0, 1.0]
     # NOTE: this uniform range works because L increases monitonically with y
     light_lookup = nphusl.nphusl._to_light(uniform_y)
+    #light_lookup = np.round(light_lookup*args.int_scale).astype(np.uint16)
     big_light_lookup[i*N: i*N+N] = light_lookup
 
     # collect statistics on LUT to gauge its usefulness
@@ -101,11 +118,13 @@ for i, uniform_y in enumerate(y_ranges):
     # write out LUT initializer
     start = uniform_y[0]
     stop = uniform_y[-1]
-    print("// Luminance for Y in [{:0.4f}, {:0.4f}]".format(start, stop), file=out_c)
+    print("// {} for Y in [{:0.4f}, {:0.4f}]".format(
+        value_description, start, stop), file=out_c)
     print("const l_table_t {} light_table_{}[{}] = {{".format(
           alignment, i, N), file=out_c)
     for i, l in enumerate(light_lookup):
-        print("{:7.4f}".format(l), end=", ", file=out_c)
+        #print("{:7.4f}".format(l), end=", ", file=out_c)
+        print_table_value(l)
         if not (i+1) % 8 and i:
             print("", file=out_c)
     print("};\n", file=out_c)
@@ -121,11 +140,12 @@ print("// Max light value step size: {:0.4f}".format(
     max_light_diff), file=out_c)
 print("// Max light value error: {:0.4f}".format(
     max_light_diff/2), file=out_c)
-print("// Luminance values for Y in [0, 1]", file=out_c)
+print("// {} for for Y in [0, 1]".format(value_description), file=out_c)
 print("const l_table_t {} light_table_big[{}] = {{".format(
       alignment, N_BIG), file=out_c)
 for i, l in enumerate(big_light_lookup):
-    print("{:6.3f}".format(l), end=", ", file=out_c)
+    #print("{:6.3f}".format(l), end=", ", file=out_c)
+    print_table_value(l)
     if not (i+1) % 8 and i:
         print("", file=out_c)
 print("};\n", file=out_c)
