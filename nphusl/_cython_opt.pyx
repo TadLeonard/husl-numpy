@@ -156,7 +156,6 @@ cpdef np.ndarray[ndim=1, dtype=double] _rgb_to_hue_2d(
     return hue
 
 
-@cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef inline double _to_light(double y_value) nogil:
@@ -166,7 +165,6 @@ cdef inline double _to_light(double y_value) nogil:
         return (y_value / REF_Y) * KAPPA
 
 
-@cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef inline double to_linear(double value) nogil:
