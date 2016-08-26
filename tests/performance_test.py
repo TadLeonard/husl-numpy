@@ -89,7 +89,7 @@ def _test_all(fn, img, env, impls, iters):
     sorted_times = sorted(times.items(), key=lambda x: x[1])
     for i, (impl, best) in enumerate(sorted_times):
         spaces = len("numexpr") - len(impl)
-        chart_bar = "\N{BLACK RIGHT-POINTING TRIANGLE}" * int(20*best/worst)
+        chart_bar = "\N{BLACK RIGHT-POINTING TRIANGLE}" * int(40*best/worst)
         tformat = "{:2.2e} s" if very_best < 0.001 else "{:2.4f} s"
         times_slower = best/very_best
         slower = "(fastest)" if times_slower == 1 else \
