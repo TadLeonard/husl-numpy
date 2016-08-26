@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -o xtrace
+table_type=${1-$"uint16_t"}
+
+python lookup_generators/gen_light_table.py -y 0.070 0.350 -t $table_type -o nphusl/_light_lookup -s 1024
+python lookup_generators/gen_chroma_table.py -t $table_type -o nphusl/_chroma_lookup -u 1024 -l 1024
