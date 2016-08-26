@@ -92,18 +92,32 @@ classifiers = [
   'Topic :: Multimedia :: Graphics',
 ]
 
+
 ext = '.pyx' if args[Arg.CYTHONIZE] else '.c'
 extensions = []
 cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
+
+
 simd_compile_args = [
      "-ftree-vectorize",
      "-ftree-vectorizer-verbose=2",
      "-std=c99",
      "-mtune=native",
 ] + cython_compile_args
+
+
+simd_sources=["nphusl/_simd_opt"+ext,
+              "nphusl/_simd.c",
+              "nphusl/_linear_lookup.c",
+              "nphusl/_scale_const.c",
+]
+
+
 if not args[Arg.NO_LIGHT_LUT]:
+    simd_sources.append("nphusl/_light_lookup.c")
     simd_compile_args.append(Arg.NO_LIGHT_LUT.alternative)
 if not args[Arg.NO_CHROMA_LUT]:
+    simd_sources.append("nphusl/_chroma_lookup.c")
     simd_compile_args.append(Arg.NO_CHROMA_LUT.alternative)
 if not args[Arg.NO_HUE_ATAN2_APPROX]:
     simd_compile_args.append(Arg.NO_HUE_ATAN2_APPROX.alternative)
@@ -114,16 +128,13 @@ cython_ext = Extension("nphusl._cython_opt",
                        extra_compile_args=cython_compile_args,
                        extra_link_args=["-fopenmp"])
 
+
 simd_ext = Extension("nphusl._simd_opt",
-                     sources=["nphusl/_simd_opt"+ext,
-                              "nphusl/_simd.c",
-                              "nphusl/_linear_lookup.c",
-                              "nphusl/_scale_const.c",
-                              "nphusl/_light_lookup.c",
-                              "nphusl/_chroma_lookup.c",],
+                     sources=simd_sources,
                      extra_compile_args=simd_compile_args,
                      include_dirs=["nphusl/"],
                      extra_link_args=["-fopenmp"])
+
 
 if not args[Arg.NO_CYTHON_EXT]:
     extensions.append(cython_ext)
