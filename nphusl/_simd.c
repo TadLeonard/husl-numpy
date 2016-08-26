@@ -48,10 +48,6 @@ static double to_light(double);
 static double to_hue(double u, double v);
 static double to_saturation(double, double, double, double);
 static double max_chroma(double, double);
-static double _max_chroma(double, double);
-static double _min_chroma_length(
-    int iteration, double lightness, double sub1, double sub2,
-    double top2, double top2_b, double sintheta, double costheta);
 
 
 // Enable luminance lookup interpolation based on compile flag
@@ -72,7 +68,7 @@ static double min_chroma_length(
 
 
 // Choose CIE-LUV -> Hue function based on compile flag
-#ifdef USEHUE_ATAN2_APPROX
+#ifdef USE_HUE_ATAN2_APPROX
 static double atan2_approx(double, double);
 #endif
 
