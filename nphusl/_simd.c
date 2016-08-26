@@ -69,7 +69,8 @@ static double min_chroma_length(
 
 // Choose CIE-LUV -> Hue function based on compile flag
 #ifdef USE_HUE_ATAN2_APPROX
-static double atan2_approx(double, double);
+static double atan2_approx(double u, double v);
+static double atan_approx(double z);
 #endif
 
 
@@ -234,20 +235,48 @@ static const double DEG_PER_RAD = 180.0 / M_PI;
 #if defined(USE_HUE_ATAN2_APPROX)  // if compiled with -DUSE_HUE_ATAN2_APPROX
 
 
-// CIE-UV to HUSL hue with arctangent approximation
+#define PI 3.141592653589793
+#define PIBY2 1.5707963267948966
+
+
+// Returns HUSL hue given U & V of CIE-LUV
+// The hue is the phase angle, in degrees, between U and V
+// Hue values are in the interval [0, 360]
 static double to_hue(double u, double v) {
-    double hue = atan2_approx(v, u) * DEG_PER_RAD;
-    if (hue < 0) {
-        hue += 360;
+    const double z = v/u;
+    double hue;
+    if (fabs(z) < 1.0) {
+        // If we're in |V/U] < 1, use the faster, more accurate approx
+        hue = atan_approx(z)*DEG_PER_RAD;
+        if (u < 0) {
+            hue += 180.0;
+        } else if (v < 0) {
+            hue += 360.0;
+        }
+    } else {
+        // Else, for |V/U| >= 1, use the approx that works for all |V/U|
+        hue = atan2_approx(v, u) * DEG_PER_RAD;
+        if (hue < 0.0) {
+            hue += 360.0;
+        }
     }
     return hue;
 }
 
 
-#define PI 3.141592653589793
-#define PIBY2 1.5707963267948966
+static const double M_PI_4 = M_PI/4;
 
 
+// a fast approximation of atan for |V/U| < 1
+static inline double atan_approx(double z) {
+    return M_PI_4*z - z*(fabs(z) - 1)*(0.2447 + 0.0663*fabs(z));
+}
+
+
+// a fast atan2 approxmiation
+// it's somewhat slower and somewhat less accurate than the
+// per-quadrant atan approx, but it works for |y/x| > 1 so we
+// use this function where our input is out of bounds for atan_approx
 static double atan2_approx(double y, double x) {
     if (x == 0.0) {
         if (y > 0.0) {
