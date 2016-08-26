@@ -301,7 +301,7 @@ static inline double to_hue(double u, double v) {
 // Saturation magnitude (hypotenuse b/t U & V) is found via sqrt(U**2 + V**2),
 // then it's normalized by the max chroma, which is dictated by H and L.
 static inline double to_saturation(double l, double u, double v, double h) {
-    const double saturation = (100.0/CHROMA_SCALE) * sqrt(u*u + v*v) / max_chroma(l, h);
+    const double saturation = (100*CHROMA_SCALE) * sqrt(u*u + v*v) / max_chroma(l, h);
     return fmin(saturation, 100.0f);
 }
 
@@ -335,10 +335,10 @@ static inline double max_chroma(double lightness, double hue) {
     return fmax(1e-10, (double) chroma_table[h_idx_round][l_idx_round]);
 
     // Find four known f() values in the unit square bilinear interp. approach
-    const double chroma_00 = chroma_table[h_idx_floor][l_idx_floor];
-    const double chroma_10 = chroma_table[h_idx_floor+1][l_idx_floor];
-    const double chroma_01 = chroma_table[h_idx_floor][l_idx_floor+1];
-    const double chroma_11 = chroma_table[h_idx_floor+1][l_idx_floor+1];
+    const double chroma_00 = (double)chroma_table[h_idx_floor][l_idx_floor];
+    const double chroma_10 = (double)chroma_table[h_idx_floor+1][l_idx_floor];
+    const double chroma_01 = (double)chroma_table[h_idx_floor][l_idx_floor+1];
+    const double chroma_11 = (double)chroma_table[h_idx_floor+1][l_idx_floor+1];
 
     // Find *normalized* x, y, (1-x), and (1-y) values
     // It's a coordinate system where the four known chromas are at
@@ -372,7 +372,7 @@ static inline double max_chroma(double lightness, double hue) {
     const double l_scaled = lightness / L_IDX_STEP;
     const unsigned short h_idx = fmax(0.0, fmin(CH_MAX_IDX, roundf(h_scaled)));
     const unsigned short l_idx = fmax(0.0, fmin(CL_MAX_IDX, roundf(l_scaled)));
-    return fmax(1e-10, chroma_table[h_idx][l_idx]);
+    return (double) fmax(1e-10, chroma_table[h_idx][l_idx]);
 }
 
 
@@ -462,7 +462,7 @@ static double to_light(double y_value) {
         idx = ((y_value - Y_THRESH_1)/Y_IDX_STEP_2) + L_SEGMENT_SIZE*2;
     }
     const unsigned short idx_round = fmax(0, fmin(L_FULL_TABLE_SIZE-1, roundf(idx)));
-    return light_table_big[idx_round] / LIGHT_SCALE;
+    return (double) light_table_big[idx_round] / LIGHT_SCALE;
 }
 
 
