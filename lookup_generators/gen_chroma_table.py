@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 import nphusl
 import alignment
+import tqdm
 
 
 parser = argparse.ArgumentParser()
@@ -72,7 +73,8 @@ l_idx_step = 100.0 / (NL-1)
 hues = np.arange(0, 360+h_idx_step, step=h_idx_step)
 lights = np.arange(0, 100+l_idx_step, step=l_idx_step)
 chroma_table = np.zeros(shape=(NH, NL), dtype=np.float)
-for i, hue in enumerate(hues):
+print("Building chroma lookup table. . .")
+for i, hue in enumerate(tqdm.tqdm(hues)):
     lch = np.zeros((lights.size, 3))
     lch[..., 2] = hue
     lch[..., 0] = lights
@@ -100,10 +102,16 @@ print("// Ave delta across luminance (2nd axis): {}".format(l_avg), file=out_c)
 print("// Max delta across luminance: {}".format(l_max), file=out_c)
 
 # write out table initializer
+if out:
+    print("Writing chroma lookup table to disk. . .")
+    iterhues = tqdm.tqdm(hues)
+else:
+    iterhues = hues
 alignment = "__attribute__((aligned({})))".format(alignment.N)
 print("const c_table_t {} chroma_table[{}][{}] = {{".format(
       alignment, NH, NL), file=out_c)
-for i, hue in enumerate(hues):
+
+for i, hue in enumerate(iterhues):
     max_delta = np.max(np.abs(chroma_table[i, 1:] - chroma_table[i, :-1]))
     print("  // Index {}: {} for hue={} and luminance in [0, 100]"
           .format(i, value_description, hue), file=out_c)
