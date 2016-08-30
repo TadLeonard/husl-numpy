@@ -9,7 +9,7 @@ from nphusl import __version__
 import numpy
 
 
-CompileArg = namedtuple("CompileArg", "setup_arg alternative")
+CompileArg = namedtuple("CompileArg", "setup_arg cc_cmd")
 
 
 class Arg(CompileArg, Enum):
@@ -22,6 +22,8 @@ class Arg(CompileArg, Enum):
         "--no-chroma-lut", "-DUSE_CHROMA_LUT")
     NO_HUE_ATAN2_APPROX = CompileArg(
         "--no-hue-atan2-approx", "-DUSE_HUE_ATAN2_APPROX")
+    INTERPOLATE_CHROMA = CompileArg(
+        "--interpolate-chroma", "-DINTERPOLATE_CHROMA")
 
 
 args = {}
@@ -115,12 +117,14 @@ simd_sources=["nphusl/_simd_opt"+ext,
 
 if not args[Arg.NO_LIGHT_LUT]:
     simd_sources.append("nphusl/_light_lookup.c")
-    simd_compile_args.append(Arg.NO_LIGHT_LUT.alternative)
+    simd_compile_args.append(Arg.NO_LIGHT_LUT.cc_cmd)
 if not args[Arg.NO_CHROMA_LUT]:
     simd_sources.append("nphusl/_chroma_lookup.c")
-    simd_compile_args.append(Arg.NO_CHROMA_LUT.alternative)
+    simd_compile_args.append(Arg.NO_CHROMA_LUT.cc_cmd)
+if args[Arg.INTERPOLATE_CHROMA]:
+    simd_compile_args.append(Arg.INTERPOLATE_CHROMA.cc_cmd)
 if not args[Arg.NO_HUE_ATAN2_APPROX]:
-    simd_compile_args.append(Arg.NO_HUE_ATAN2_APPROX.alternative)
+    simd_compile_args.append(Arg.NO_HUE_ATAN2_APPROX.cc_cmd)
 
 
 cython_ext = Extension("nphusl._cython_opt",
