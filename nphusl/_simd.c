@@ -61,6 +61,7 @@ static double max_chroma(double, double);
 #include <_chroma_lookup.h>
 static double linear_interp_chroma(double, double, double);
 #else
+#define CHROMA_SCALE 1
 static double min_chroma_length(
     int iteration, double lightness, double sub1, double sub2,
     double top2, double top2_b, double sintheta, double costheta);
@@ -346,6 +347,9 @@ static inline double to_saturation(double l, double u, double v, double h) {
 #if defined(INTERPOLATE_CHROMA)  // if compiled to use bilinear interpolation
 
 
+#define CH_MAX_IDX CH_TABLE_SIZE-2
+#define CL_MAX_IDX CL_TABLE_SIZE-2
+
 // Returns a maximum chroma given an L, H pair.
 // This max chroma is used to scale HUSL's saturation value.
 // Uses _chroma_lookup.c with bilinear interpolation.
@@ -355,19 +359,16 @@ static inline double to_saturation(double l, double u, double v, double h) {
 // https://en.wikipedia.org/wiki/Bilinear_interpolation
 static inline double max_chroma(double lightness, double hue) {
     // Compute H-value indices (axis 0) and L-value indices (axis 1)
-    static const double CH_MAX_IDX = CH_TABLE_SIZE-2;
-    static const double CL_MAX_IDX = CL_TABLE_SIZE-2;
     const double h_idx = hue / H_IDX_STEP;
     const double l_idx = lightness / L_IDX_STEP;
     const unsigned short h_idx_floor = fmax(0.0, fmin(CH_MAX_IDX, floorf(h_idx)));
     const unsigned short l_idx_floor = fmax(0.0, fmin(CL_MAX_IDX, floorf(l_idx)));
-    return fmax(1e-10, (double) chroma_table[h_idx_round][l_idx_round]);
 
     // Find four known f() values in the unit square bilinear interp. approach
-    const double chroma_00 = (double)chroma_table[h_idx_floor][l_idx_floor];
-    const double chroma_10 = (double)chroma_table[h_idx_floor+1][l_idx_floor];
-    const double chroma_01 = (double)chroma_table[h_idx_floor][l_idx_floor+1];
-    const double chroma_11 = (double)chroma_table[h_idx_floor+1][l_idx_floor+1];
+    const c_table_t chroma_00 = chroma_table[h_idx_floor][l_idx_floor];
+    const c_table_t chroma_10 = chroma_table[h_idx_floor+1][l_idx_floor];
+    const c_table_t chroma_01 = chroma_table[h_idx_floor][l_idx_floor+1];
+    const c_table_t chroma_11 = chroma_table[h_idx_floor+1][l_idx_floor+1];
 
     // Find *normalized* x, y, (1-x), and (1-y) values
     // It's a coordinate system where the four known chromas are at
