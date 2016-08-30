@@ -3,7 +3,7 @@
 set -o xtrace
 table_type=${1-$"uint16_t"}
 light_table_size=${2-$"2048"}
-chroma_table_size=${2-$"1024"}
+chroma_table_size=${3-$"2048"}
 
-python lookup_generators/gen_light_table.py -y 0.070 0.350 -t $table_type -o nphusl/_light_lookup -s $light_table_size
-python lookup_generators/gen_chroma_table.py -t $table_type -o nphusl/_chroma_lookup -u $chroma_table_size -l $chroma_table_size
+python LUT/light.py -y 0.070 0.350 -t $table_type -o nphusl/_light_lookup -s $light_table_size
+python LUT/chroma.py -t $table_type -o nphusl/_chroma_lookup -u $chroma_table_size -l $chroma_table_size
