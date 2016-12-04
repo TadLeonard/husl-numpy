@@ -2,7 +2,7 @@ import argparse
 import sys
 import functools
 
-import imread
+import imageio
 import numpy as np
 import pytest
 
@@ -205,7 +205,7 @@ def test_max_lh_for_chroma():
             mx_old = husl.max_chroma_for_LH(float(lch[0]), float(lch[2]))
         except ZeroDivisionError:
             # NOTE: Divide by zero is avoided in nphusl.py
-            # we're taking a backdoor here by using max_chroma_for_LH directly 
+            # we're taking a backdoor here by using max_chroma_for_LH directly
             assert np.isinf(mx)
         else:
             _diff(mx, mx_old)
@@ -724,7 +724,7 @@ def _diff_husl(a, b, max_rgb_diff=2):
         _diff(a_hue, b_hue, 0.3)
         _diff(a_sat, b_sat, 2.0)  # HUSL saturation is hard to approximate
         _diff(a_lit, b_lit, 0.1)
-    imread.imwrite("horkle.jpg", _img())
+    imageio.imwrite("horkle.jpg", _img())
 
 
 IMG_CACHED = [None]
@@ -732,7 +732,7 @@ IMG_CACHED = [None]
 
 def _img():
     if IMG_CACHED[0] is None:
-        i = imread.imread("images/gelface.jpg")
+        i = imageio.imread("images/gelface.jpg")
         i[50:100, 50:100] = np.random.rand(50, 50, 3) * 255
         i = i[::4, ::4]
         i[0] = 0  # ensure we get all black

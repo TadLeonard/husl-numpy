@@ -4,6 +4,7 @@ import timeit
 from collections import defaultdict
 
 import imageio
+import tabulate
 import pytest
 import numpy as np
 import nphusl
@@ -11,12 +12,6 @@ import husl
 
 
 default_impls = "simd cython numexpr numpy".split()
-
-
-# ASCII formatting codes
-BOLD = "\033[1m"
-FAINT = "\033[2m"
-END = "\033[0m"
 
 
 @pytest.fixture
@@ -87,6 +82,8 @@ def _test_all(fn, img, env, impls, iters):
     worst = max(times.values())
     very_best = min(times.values())
     sorted_times = sorted(times.items(), key=lambda x: x[1])
+    fields = " ", "Impl", "Time", "Pixels/s", "Times slower"
+    rows = []
     for i, (impl, best) in enumerate(sorted_times):
         spaces = len("numexpr") - len(impl)
         chart_bar = "\N{BLACK RIGHT-POINTING TRIANGLE}" * int(40*best/worst)
@@ -96,8 +93,10 @@ def _test_all(fn, img, env, impls, iters):
                  "({:0.2f}x slower)".format(times_slower)
         t = tformat.format(best)
         pps = np.asarray(img).size / 3 / best
-        print((BOLD if i == 0 else FAINT) +
-              "{}. {}: {}[{}] [{:0.2e} pixels/s] {:15s} {:20s}".format(
-              i, impl, " "*spaces, t, pps, slower, chart_bar) + END)
+        rows.append([i, impl, t, pps, slower])
+    table = tabulate.tabulate(
+                rows, headers=fields, tablefmt="simple",
+                floatfmt="6.2e")
+    print(table)
     print()
 
