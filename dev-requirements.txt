@@ -3,3 +3,5 @@ Cython
 tqdm
 imageio
 pytest
+husl
+tabulate
