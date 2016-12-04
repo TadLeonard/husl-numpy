@@ -65,13 +65,16 @@ def test_perf_rgb_to_hue(impls, iters, img):
 
 def _test_all(fn, img, env, impls, iters):
     env = {**globals(), **locals()}
-    print("\n\n{}({})".format(fn, "img"), end="")
+    print("\n\n{}({})".format(fn, "img"))
     if len(img) > 3:
         dims = "x".join(str(i) for i in img.shape)
     else:
         dims = "3x1"
-    print(" -- best of {} with dims {} (source: {})".format(
-          iters, dims, CachedImg.path))
+    title = "best of {} with dims {} (img: {})".format(
+             iters, dims, CachedImg.path)
+    print(title, end="\n\n")
+    #print("=" * len(title))
+
     times = {}
     for impl in impls:
         enable = getattr(nphusl, "{}_enabled".format(impl))
@@ -82,20 +85,19 @@ def _test_all(fn, img, env, impls, iters):
     worst = max(times.values())
     very_best = min(times.values())
     sorted_times = sorted(times.items(), key=lambda x: x[1])
-    fields = " ", "Impl", "Time", "Pixels/s", "Times slower"
     rows = []
     for i, (impl, best) in enumerate(sorted_times):
         spaces = len("numexpr") - len(impl)
-        chart_bar = "\N{BLACK RIGHT-POINTING TRIANGLE}" * int(40*best/worst)
-        tformat = "{:2.2e} s" if very_best < 0.001 else "{:2.4f} s"
+        tformat = "{:2.2e} s" if very_best < 0.001 else "{:02.4f} s"
         times_slower = best/very_best
-        slower = "(fastest)" if times_slower == 1 else \
-                 "({:0.2f}x slower)".format(times_slower)
+        slower = "1.0x (fastest)" if times_slower == 1 else \
+                 "{:0.1f}x slower".format(times_slower)
         t = tformat.format(best)
         pps = np.asarray(img).size / 3 / best
-        rows.append([i, impl, t, pps, slower])
+        rows.append([impl, best, pps, slower])
+    fields = "Impl", "Duration (s)", "Pixels/s", "Relative speed"
     table = tabulate.tabulate(
-                rows, headers=fields, tablefmt="simple",
+                rows, headers=fields, tablefmt="pipe",
                 floatfmt="6.2e")
     print(table)
     print()
