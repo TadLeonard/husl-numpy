@@ -57,12 +57,13 @@ HUSL in less than a second.
 3. Flexible `numpy` arrays as inputs and outputs. Plays nicely with `OpenCV`,
 `MoviePy`, etc.
 
-Installation
-------------
+Installation from source
+------------------------
 
-1. `virtualenv env -p python3`
+1. `python3.5 -m venv env/`
 2. `source env/bin/activate`
-3. `pip install numpy`
+3. `git clone https://github.com/TadLeonard/husl-numpy.git`
+4. `pip install -r dev-requirements.txt`
 4. (optional) `pip install Cython`  (or NumExpr, but Cython is preferred)
 5. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
 
