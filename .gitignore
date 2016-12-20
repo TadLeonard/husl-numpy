@@ -1,3 +1,25 @@
+# accuracy test files
+_accuracy_test_recreated.png
+_accuracy_test_source.png
+
+# vim swap files
+.*.swp
+
+# images, test images
+tests/*.jpg
+tests/*.tiff
+.*.tiff
+.*.jpg
+
+# generated files
+nphusl/_chroma_lookup.c
+nphusl/_chroma_lookup.h
+nphusl/_cython_opt.c
+nphusl/_light_lookup.c
+nphusl/_light_lookup.h
+nphusl/_nphusl_cython.c
+nphusl/_simd_opt.c
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

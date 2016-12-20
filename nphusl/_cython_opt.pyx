@@ -3,106 +3,33 @@ cimport numpy as np
 import cython
 
 from . import constants
+from . import transform
 from cython.parallel import prange, parallel
 from libc.math cimport sin, cos, M_PI, atan2, sqrt
 
 
-cdef extern from "_simd_ops.h":
-    double to_light_c(double) nogil
-    double to_linear_c(double) nogil
-    void rgb_to_husl_3d_c(double*, double*, int, int)
-
-
 cdef double[3][3] M = constants.M
-#    [3.240969941904521, -1.537383177570093, -0.498610760293],
-#    [-0.96924363628087, 1.87596750150772, 0.041555057407175],
-#    [0.055630079696993, -0.20397695888897, 1.056971514242878]
-#]
-
-cdef double[3][3] M_INV = constants.M_INV# = [
-#    [0.41239079926595, 0.35758433938387, 0.18048078840183],
-#    [0.21263900587151, 0.71516867876775, 0.072192315360733],
-#    [0.019330818715591, 0.11919477979462, 0.95053215224966],
-#]
-
-cdef double REF_X = constants.REF_X #0.95045592705167
-cdef double REF_Y = constants.REF_Y #1.0
-cdef double REF_Z = constants.REF_Z #1.089057750759878
-cdef double REF_U = constants.REF_U #0.19783000664283
-cdef double REF_V = constants.REF_V #0.46831999493879
-cdef double KAPPA = constants.KAPPA #903.2962962
-cdef double EPSILON = constants.EPSILON #0.0088564516
+cdef double[3][3] M_INV = constants.M_INV
+cdef double REF_X = constants.REF_X
+cdef double REF_Y = constants.REF_Y
+cdef double REF_Z = constants.REF_Z
+cdef double REF_U = constants.REF_U
+cdef double REF_V = constants.REF_V
+cdef double KAPPA = constants.KAPPA
+cdef double EPSILON = constants.EPSILON
 
 
-def rgb_to_husl(rgb):
-    if len(rgb.shape) == 3:
-        return np.asarray(rgb_to_husl_3d(rgb))
+@transform.rgb_float_input
+def _rgb_to_husl(rgb):
+    is_3d = rgb.ndim == 3
+    if is_3d:
+        size = rgb.shape[0] * rgb.shape[1]
+        rgb_2d = rgb.reshape((size, 3))
     else:
-        return rgb_to_husl_2d(rgb)
-
-
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-@cython.wraparound(False)
-cpdef double[:, :, ::1] rgb_to_husl_3d(
-        double[:, :, ::1] rgb):
-    cdef Py_ssize_t size = rgb.size
-    cdef Py_ssize_t rows = rgb.shape[0]
-    cdef Py_ssize_t cols = rgb.shape[1]
-    cdef double[:, :, ::1] husl
-    husl = np.empty_like(rgb)
-    rgb_to_husl_3d_c(&rgb[0, 0, 0], &husl[0, 0, 0], rows, cols)
-    return husl
-
-    cdef int i, j
-    cdef double r, g, b
-    cdef double x, y, z
-    cdef double l, u, v
-    cdef double var_u, var_v
-    cdef double c, h, hrad, s
-
-    for i in range(rows):#, schedule="guided", nogil=True):
-        for j in range(cols):
-            # from linear RGB
-            r = to_linear_c(rgb[i, j, 0])
-            g = to_linear_c(rgb[i, j, 1])
-            b = to_linear_c(rgb[i, j, 2])
-
-            # to XYZ
-            x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
-            y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
-            z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
-
-            # to LUV
-            if x == y == z == 0:
-                l = u = v = 0
-            else:
-                var_u = 4 * x / (x + 15 * y + 3 * z)
-                var_v = 9 * y / (x + 15 * y + 3 * z)
-                l = to_light(y)
-                u = 13 * l * (var_u - REF_U)
-                v = 13 * l * (var_v - REF_V)
-
-            # to LCH
-            c = sqrt(u ** 2 + v ** 2)
-            hrad = atan2(v, u)
-            h = hrad * (180.0 / M_PI)
-            if h < 0:
-                h = h + 360
-
-            # to HSL (finally!)
-            if l > 99.99:
-                s = 0
-                l = 100
-            elif l < 0.01:
-                s = l = 0
-            else:
-                s = (c / max_chroma(l, h)) * 100.0
-            husl[i, j, 0] = h
-            husl[i, j, 1] = s
-            husl[i, j, 2] = l
-
+        rgb_2d = rgb
+    husl = _rgb_to_husl_2d(rgb_2d)
+    if is_3d:
+        husl = husl.reshape(rgb.shape)
     return husl
 
 
@@ -110,7 +37,7 @@ cpdef double[:, :, ::1] rgb_to_husl_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
+cpdef np.ndarray[ndim=2, dtype=double] _rgb_to_husl_2d(
         np.ndarray[ndim=2, dtype=double] rgb):
     cdef int i
     cdef int rows = rgb.shape[0]
@@ -140,7 +67,7 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
         else:
             var_u = 4 * x / (x + 15 * y + 3 * z)
             var_v = 9 * y / (x + 15 * y + 3 * z)
-            l = to_light(y)
+            l = _to_light(y)
             u = 13 * l * (var_u - REF_U)
             v = 13 * l * (var_v - REF_V)
 
@@ -166,61 +93,17 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_husl_2d(
     return husl
 
 
-def rgb_to_hue(rgb):
-    if len(rgb.shape) == 3:
-        return rgb_to_hue_3d(rgb)
+@transform.rgb_float_input
+def _rgb_to_hue(rgb):
+    is_3d = rgb.ndim == 3
+    if is_3d:
+        size = rgb.shape[0] * rgb.shape[1]
+        rgb_2d = rgb.reshape((size, 3))
     else:
-        return rgb_to_hue_2d(rgb)
-
-
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-@cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
-        np.ndarray[ndim=3, dtype=double] rgb):
-    cdef int i, j
-    cdef int rows = rgb.shape[0]
-    cdef int cols = rgb.shape[1]
-    cdef np.ndarray[ndim=2, dtype=double] hue = (
-        np.zeros(dtype=float, shape=(rows, cols)))
-
-    cdef double r, g, b
-    cdef double x, y, z
-    cdef double l, u, v
-    cdef double var_u, var_v
-    cdef double c, h, hrad
-
-    for i in prange(rows, schedule="guided", nogil=True):
-        for j in range(cols):
-            # from linear RGB
-            r = to_linear(rgb[i, j, 0])
-            g = to_linear(rgb[i, j, 1])
-            b = to_linear(rgb[i, j, 2])
-
-            # to XYZ
-            x = M_INV[0][0] * r + M_INV[0][1] * g + M_INV[0][2] * b
-            y = M_INV[1][0] * r + M_INV[1][1] * g + M_INV[1][2] * b
-            z = M_INV[2][0] * r + M_INV[2][1] * g + M_INV[2][2] * b
-
-            # to LUV
-            if x == y == z == 0:
-                l = u = v = 0
-            else:
-                var_u = 4 * x / (x + 15 * y + 3 * z)
-                var_v = 9 * y / (x + 15 * y + 3 * z)
-                l = to_light(y)
-                u = 13 * l * (var_u - REF_U)
-                v = 13 * l * (var_v - REF_V)
-
-            # to LCH
-            c = sqrt(u ** 2 + v ** 2)
-            hrad = atan2(v, u)
-            h = hrad * (180.0 / M_PI)
-            if h < 0:
-                h = h + 360
-            hue[i, j] = h
-
+        rgb_2d = rgb
+    hue = _rgb_to_hue_2d(rgb_2d)
+    if is_3d:
+        hue = hue.reshape((rgb.shape[0], rgb.shape[1]))
     return hue
 
 
@@ -228,7 +111,7 @@ cpdef np.ndarray[ndim=2, dtype=double] rgb_to_hue_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
+cpdef np.ndarray[ndim=1, dtype=double] _rgb_to_hue_2d(
         np.ndarray[ndim=2, dtype=double] rgb):
     cdef int i
     cdef int rows = rgb.shape[0]
@@ -258,7 +141,7 @@ cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
         else:
             var_u = 4 * x / (x + 15 * y + 3 * z)
             var_v = 9 * y / (x + 15 * y + 3 * z)
-            l = to_light(y)
+            l = _to_light(y)
             u = 13 * l * (var_u - REF_U)
             v = 13 * l * (var_v - REF_V)
 
@@ -273,17 +156,15 @@ cpdef np.ndarray[ndim=1, dtype=double] rgb_to_hue_2d(
     return hue
 
 
-@cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef inline double to_light(double y_value) nogil:
+cdef inline double _to_light(double y_value) nogil:
     if y_value > EPSILON:
         return 116 * (y_value / REF_Y) ** (1.0 / 3.0) - 16
     else:
         return (y_value / REF_Y) * KAPPA
 
 
-@cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef inline double to_linear(double value) nogil:
@@ -293,70 +174,17 @@ cdef inline double to_linear(double value) nogil:
         return value / 12.92
 
 
-def husl_to_rgb(hsl):
-    if len(hsl.shape) == 3:
-        return husl_to_rgb_3d(hsl)
+@transform.float_input
+def _husl_to_rgb(hsl):
+    is_3d = hsl.ndim == 3
+    if is_3d:
+        size = hsl.shape[0] * hsl.shape[1]
+        hsl_2d = hsl.reshape((size, 3))
     else:
-        return husl_to_rgb_2d(hsl)
-
-
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-@cython.wraparound(False)
-cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb_3d(
-        np.ndarray[ndim=3, dtype=double] hsl):
-    cdef int i, j, k
-    cdef int rows = hsl.shape[0]
-    cdef int cols = hsl.shape[1]
-    cdef np.ndarray[ndim=3, dtype=double] rgb = (
-        np.zeros(dtype=float, shape=(rows, cols, 3)))
-
-    cdef double h, s, l
-    cdef double c
-    cdef double u, v
-    cdef double x, y, z
-    cdef double hrad
-    cdef double var_y, var_u, var_v
-
-    for i in prange(rows, schedule="guided", nogil=True):
-        for j in range(cols):
-            # from HSL
-            h = hsl[i, j, 0]
-            s = hsl[i, j, 1]
-            l = hsl[i, j, 2]
-
-            # to LCH and LUV
-            if l > 99.99:
-                l = 100
-                c = u = v = 0
-            elif l < 0.01:
-                l = c = u = v = 0
-            else:
-                c = max_chroma(l, h) / 100.0 * s
-                hrad = h / 180.0 * M_PI
-                u = cos(hrad) * c
-                v = sin(hrad) * c
-
-            # to XYZ
-            if l == 0.0:
-                x = y = z = 0.0
-            else:
-                if l > 8:
-                    var_y = REF_Y * ((l + 16.0) / 116.0) ** 3
-                else:
-                    var_y = REF_Y * l / KAPPA
-                var_u = u / (13.0 * l) + REF_U
-                var_v = v / (13.0 * l) + REF_V
-                y = var_y * REF_Y
-                x = -(9.0 * y * var_u) / ((var_u - 4.0) * var_v - var_u * var_v)
-                z = (9.0 * y - (15.0 * var_v * y) - (var_v * x)) / (3.0 * var_v)
-
-            # to RGB (finally!)
-            for k in range(3):
-                rgb[i, j, k] = _from_linear(
-                    M[k][0] * x + M[k][1] * y + M[k][2] * z)
-
+        hsl_2d = hsl
+    rgb = _husl_to_rgb_2d(hsl_2d)
+    if is_3d:
+        rgb = rgb.reshape(hsl.shape)
     return rgb
 
 
@@ -364,7 +192,7 @@ cpdef np.ndarray[ndim=3, dtype=double] husl_to_rgb_3d(
 @cython.nonecheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-cpdef np.ndarray[ndim=2, dtype=double] husl_to_rgb_2d(
+cpdef np.ndarray[ndim=2, dtype=double] _husl_to_rgb_2d(
         np.ndarray[ndim=2, dtype=double] hsl):
     cdef int i, k
     cdef int rows = hsl.shape[0]
@@ -418,9 +246,6 @@ cpdef np.ndarray[ndim=2, dtype=double] husl_to_rgb_2d(
     return rgb
 
 
-
-cdef double lin_exp = 1.0 / 2.4
-
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
@@ -428,7 +253,7 @@ cdef inline double _from_linear(double value) nogil:
     if value <= 0.0031308:
         return 12.92 * value
     else:
-        return 1.055 * value ** lin_exp - 0.055
+        return 1.055 * value ** (1.0 / 2.4) - 0.055
 
 
 cpdef _grind_max_chroma(int n, double lightness, double hue):

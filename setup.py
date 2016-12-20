@@ -1,13 +1,40 @@
 import sys
+assert sys.version_info >= (3, 4), "Python 3.4+ only!"
+
+from collections import namedtuple
+from enum import Enum
+from pprint import pformat
 from setuptools import setup, Extension
 from nphusl import __version__
 import numpy
-if "--use-cython" in sys.argv:
-    sys.argv.remove("--use-cython")
-    USE_CYTHON = True
-else:
-    USE_CYTHON = False
 
+
+CompileArg = namedtuple("CompileArg", "setup_arg cc_cmd")
+
+
+class Arg(CompileArg, Enum):
+    CYTHONIZE = CompileArg("--cythonize", None)
+    NO_CYTHON_EXT = CompileArg("--no-cython-ext", None)
+    NO_SIMD_EXT = CompileArg("--no-simd-ext", None)
+    NO_LIGHT_LUT = CompileArg(
+        "--no-light-lut", "-DUSE_LIGHT_LUT")
+    NO_CHROMA_LUT = CompileArg(
+        "--no-chroma-lut", "-DUSE_CHROMA_LUT")
+    NO_HUE_ATAN2_APPROX = CompileArg(
+        "--no-hue-atan2-approx", "-DUSE_HUE_ATAN2_APPROX")
+    INTERPOLATE_CHROMA = CompileArg(
+        "--interpolate-chroma", "-DINTERPOLATE_CHROMA")
+
+
+args = {}
+for arg in Arg:
+    arg_enabled = arg.setup_arg in sys.argv
+    args[arg] = arg_enabled
+    if arg_enabled:
+        sys.argv.remove(arg.setup_arg)
+
+print("Application options:\n{}".format(
+    pformat({k.name: v for k, v in args.items()})))
 
 url = "https://github.com/TadLeonard/husl-numpy"
 download = "{}/archive/{}.tar.gz".format(url, __version__)
@@ -30,12 +57,13 @@ HUSL in less than a second.
 3. Flexible `numpy` arrays as inputs and outputs. Plays nicely with `OpenCV`,
 `MoviePy`, etc.
 
-Installation
-------------
+Installation from source
+------------------------
 
-1. `virtualenv env -p python3`
+1. `python3.5 -m venv env/`
 2. `source env/bin/activate`
-3. `pip install numpy`
+3. `git clone https://github.com/TadLeonard/husl-numpy.git`
+4. `pip install -r dev-requirements.txt`
 4. (optional) `pip install Cython`  (or NumExpr, but Cython is preferred)
 5. `pip install git+https://github.com/TadLeonard/husl-numpy.git`
 
@@ -67,16 +95,57 @@ classifiers = [
   'Topic :: Multimedia :: Graphics',
 ]
 
-ext = '.pyx' if USE_CYTHON else '.c'
-extensions = [
-    Extension("nphusl._nphusl_cython",
-              sources=["nphusl/_nphusl_cython"+ext, "nphusl/_simd_ops.c"],
-              include_dirs=["nphusl/"],
-              extra_compile_args=["-fopenmp", "-O3", "-ffast-math"],
-              extra_link_args=["-fopenmp"])
+
+ext = '.pyx' if args[Arg.CYTHONIZE] else '.c'
+extensions = []
+cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
+
+
+simd_compile_args = [
+     "-ftree-vectorize",
+     "-ftree-vectorizer-verbose=2",
+     "-std=c99",
+     "-mtune=native",
+] + cython_compile_args
+
+
+simd_sources=["nphusl/_simd_opt"+ext,
+              "nphusl/_simd.c",
+              "nphusl/_linear_lookup.c",
+              "nphusl/_scale_const.c",
 ]
 
-if USE_CYTHON:
+
+if not args[Arg.NO_LIGHT_LUT]:
+    simd_sources.append("nphusl/_light_lookup.c")
+    simd_compile_args.append(Arg.NO_LIGHT_LUT.cc_cmd)
+if not args[Arg.NO_CHROMA_LUT]:
+    simd_sources.append("nphusl/_chroma_lookup.c")
+    simd_compile_args.append(Arg.NO_CHROMA_LUT.cc_cmd)
+if args[Arg.INTERPOLATE_CHROMA]:
+    simd_compile_args.append(Arg.INTERPOLATE_CHROMA.cc_cmd)
+if not args[Arg.NO_HUE_ATAN2_APPROX]:
+    simd_compile_args.append(Arg.NO_HUE_ATAN2_APPROX.cc_cmd)
+
+
+cython_ext = Extension("nphusl._cython_opt",
+                       sources=["nphusl/_cython_opt"+ext],
+                       extra_compile_args=cython_compile_args,
+                       extra_link_args=["-fopenmp"])
+
+
+simd_ext = Extension("nphusl._simd_opt",
+                     sources=simd_sources,
+                     extra_compile_args=simd_compile_args,
+                     include_dirs=["nphusl/"],
+                     extra_link_args=["-fopenmp"])
+
+
+if not args[Arg.NO_CYTHON_EXT]:
+    extensions.append(cython_ext)
+if not args[Arg.NO_SIMD_EXT]:
+    extensions.append(simd_ext)
+if args[Arg.CYTHONIZE]:
     from Cython.Build import cythonize
     extensions = cythonize(extensions)
 
