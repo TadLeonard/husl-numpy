@@ -50,9 +50,11 @@ np.all(rgb == img)  # True
 
 #### Performance adjustments
 
-* For enormous images, specify `chunksize` to save memory (e.g. `to_rgb(hsl, chunksize=2000)`). Not necessary if Cython is installed.
 * To disable `C/SIMD`, `NumExpr`, or `Cython` optimizations, use `nphusl.enable_numpy()`
 * Enable specific optimizations with `nphusl.XXX_enabled` context managers or `nphusl.enable_XXX` functions.
+* For enormous images, specify `chunksize` to use less memory at once
+  (e.g. `to_rgb(hsl, chunksize=2000)`). This is only useful without one of
+  `NumExpr`, `Cython`, or `C/SIMD` optimizations enabled.
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
@@ -155,8 +157,7 @@ striations on the subject's face. Here's the output with `chunksize = 5`:
 Now we'll microwave our subject by by using all three HUSL channels at once
 and [MoviePy](https://github.com/Zulko/moviepy) to make a GIF.
 To produce a microwave "melt", we need a function that will form hue waves,
-mask regions of high saturation, and make "drips" by sliding lightness
-values downward.
+mask regions of high saturation, and make "drips" by sliding dark pixels downward.
 
 ```python
 def microwave(img):
@@ -187,12 +188,9 @@ generator. MoviePy makes this easy. The animation should be a perfect
 loop, so we calculate the duration based on `n_frames` and `fps`.
 
 ```python
-n_frames = 25 
-fps = 24
-duration = n_frames / fps
-rainbow_frames = hue_rainbow(img, n_frames)
-animation = VideoClip(lambda _: next(rainbow_frames), duration=duration)
-animation.write_gif("microwave.gif", fps=fps)
+frames = microwave(img)
+animation = VideoClip(lambda _: next(frames), duration=10)
+animation.write_gif("microwave.gif", fps=24)
 ```
 
 ![microwave](http://imgur.com/0BAP3RX.gif)
@@ -205,7 +203,6 @@ By incrementing `chunksize` for successive frames, we can produce a nice "meloni
 def melonize(img, n_frames):
     hsl = nphusl.to_husl(img)
     hue, sat, lit = (hsl[..., n] for n in range(3))
-    #sat[:] = 99
     pink = 360  # very end of the H spectrum
     green = 130
 
@@ -223,6 +220,18 @@ def melonize(img, n_frames):
             hue_out[select] = color
         yield to_rgb(hsl_out)
 ```
+
+Again, we can send this frame generator to `MoviePy` to make a gif.
+
+```python
+frames = melonize(img, 360)  # 360 total frames
+animation = VideoClip(lambda _: next(frames), duration=int(360./24.))
+animation.write_gif("melonize.gif", fps=24)
+```
+
+This produces melon-hued waves across the subject's face.
+Since we concerned ourselves with the subject's original saturation and lightness values,
+these hue waves will appear to follow the contours of the subject's face.
 
 ![melonize](https://i.imgur.com/Arv5BDt.gif)
 
