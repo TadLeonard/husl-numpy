@@ -51,7 +51,8 @@ np.all(rgb == img)  # True
 #### Performance adjustments
 
 * For enormous images, specify `chunksize` to save memory (e.g. `to_rgb(hsl, chunksize=2000)`). Not necessary if Cython is installed.
-* To disable NumExpr or Cython optimizations, use `nphusl.enable_std_fns()`.
+* To disable `C/SIMD`, `NumExpr`, or `Cython` optimizations, use `nphusl.enable_numpy()`
+* Enable specific optimizations with `nphusl.XXX_enabled` context managers or `nphusl.enable_XXX` functions.
 
 ## Example 1: Highlighting bluish regions
 Let's say we need to highlight the bluish regions in this image:
