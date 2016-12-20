@@ -69,7 +69,7 @@ def try_optimizations(*opts):
 
 @try_optimizations()
 def test_to_husl_2d():
-    img = np.ascontiguousarray(_img()[:, 22])
+    img = np.ascontiguousarray(_img()[:, 4])
     float_img = transform.ensure_rgb_float(img)
     husl_new = nphusl.to_husl(img)
     for row in range(img.shape[0]):
