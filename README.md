@@ -9,8 +9,8 @@ A color space conversion library that works with [numpy](http://numpy.org). See 
 
 ## Features
 
-1. Fast conversion to RGB from HUSL and vice versa. Convert a 1080p image to HUSL in less than a second.
-2. Seamless performance improvements with `NumExpr`, `Cython`, and `OpenMP` (whichever's available).
+1. Fast conversion to RGB from HUSL and vice versa. Convert a 1080p image to HUSL at 24 FPS!
+2. Seamless performance improvements with `C+OpenMP`, `NumExpr`, or `Cython`.
 3. Flexible `numpy` arrays as inputs and outputs. Plays nicely with `OpenCV`, `MoviePy`, etc.
 
 ## Installation
