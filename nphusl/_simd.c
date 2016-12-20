@@ -36,8 +36,8 @@
 
 
 static double *allocate_hsl(size_t size);
-static void rgb_to_luv_nd(uint8_t *rgb, double *luv, size_t size);
-static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, size_t size);
+static void rgb_to_luv_nd(uint8_t *rgb, double *luv, int size);
+static void rgbluv_to_husl_nd(uint8_t *rgb, double *luv_hsl, int size);
 static void to_linear_rgb(uint8_t r, uint8_t g, uint8_t b,
                           double *rl, double *gl, double *bl);
 static void to_xyz(double r, double g, double b,
@@ -87,24 +87,24 @@ static const double WHITE_LIGHTNESS = 100.0;
 double* rgb_to_husl_nd(uint8_t *restrict rgb, size_t size) {
     double *hsl = allocate_hsl(size);  // HUSL H, S, L tripets
 
-    // Choose private variables for OpenMP threads
-    // We want chroma and luminance LUTs to be firstprivate if present
-    #if defined(USE_CHROMA_LUT) && defined(USE_LIGHT_LUT)
-    #pragma omp parallel \
-        default(none) shared(hsl, rgb) \
-        firstprivate(size, chroma_table, light_table_big, \
-                     CL_TABLE_SIZE, CH_TABLE_SIZE) \
-        if (size >= MIN_IMG_SIZE_THREADED)
-    #else  // else we don't have tables to make firstprivate
-    #pragma omp parallel \
-        default(none) shared(hsl, rgb) \
-        firstprivate(size) \
-        if (size >= MIN_IMG_SIZE_THREADED)
-    #endif  // end OMP pragma
+// Choose private variables for OpenMP threads
+// We want chroma and luminance LUTs to be firstprivate if present
+#if defined(USE_CHROMA_LUT) && defined(USE_LIGHT_LUT)
+#pragma omp parallel \
+    default(none) shared(hsl, rgb) \
+    firstprivate(size, chroma_table, light_table_big, \
+                 CL_TABLE_SIZE, CH_TABLE_SIZE) \
+    if (size >= MIN_IMG_SIZE_THREADED)
+#else  // else we don't have tables to make firstprivate
+#pragma omp parallel \
+    default(none) shared(hsl, rgb) \
+    firstprivate(size) \
+    if (size >= MIN_IMG_SIZE_THREADED)
+#endif  // end OMP pragma
 
-    { // begin OMP parallel
+    {  // start OMP parallel
     rgb_to_luv_nd(rgb, hsl, size);
-    #pragma omp barrier  // ensure LUV elements are done being written
+#pragma omp barrier
     rgbluv_to_husl_nd(rgb, hsl, size);
     } // end OMP parallel
 
@@ -125,15 +125,15 @@ static double* __attribute__((alloc_size(1))) allocate_hsl(size_t size) {
 
 
 // Convert nonlinear RGB to CIE-LUV
-static void rgb_to_luv_nd(uint8_t *restrict rgb, double *restrict luv, size_t size) {
-    unsigned int i;
-    #pragma omp for schedule(static)
+static void rgb_to_luv_nd(uint8_t *restrict rgb, double *restrict luv, int size) {
+    int i;
+#pragma omp for
     for (i = 0; i < size; i+=3) {
         double *luv_p = luv + i;
         uint8_t *rgb_p = rgb + i;
-        const uint8_t r = *(rgb_p);
-        const uint8_t g = *(++rgb_p);
-        const uint8_t b = *(++rgb_p);
+        const uint8_t r = *(rgb_p++);
+        const uint8_t g = *(rgb_p++);
+        const uint8_t b = *(rgb_p++);
 
         // from RGB in [0, 255] to RGB-linear in [0,1]
         double rl, gl, bl;
@@ -142,9 +142,9 @@ static void rgb_to_luv_nd(uint8_t *restrict rgb, double *restrict luv, size_t si
         // to CIE-XYZ to CIE-LUV
         double x, y, z;
         double *l, *u, *v;
-        l = luv_p;
-        u = (++luv_p);
-        v = (++luv_p);
+        l = luv_p++;
+        u = luv_p++;
+        v = luv_p++;
         to_xyz(rl, gl, bl, &x, &y, &z);
         to_luv(x, y, z, l, u, v);
     }
@@ -191,37 +191,37 @@ static inline void to_luv(
 // Convert CIE-LUV to HUSL. The original RGB array is still passed in
 // for the handling of boundary conditions (white and black pixels).
 static void rgbluv_to_husl_nd(
-        uint8_t *restrict rgb, double *restrict luv_hsl, size_t size) {
-    unsigned int i;
-    #pragma omp for schedule(guided)
+        uint8_t *restrict rgb, double *restrict luv_hsl,
+        int size) {
+    int i;
+#pragma omp for
     for (i = 0; i < size; i+=3) {
         double *hsl_p = luv_hsl + i;
         uint8_t *rgb_p = rgb + i;
-
-        const uint8_t r = *rgb_p;
-        const uint8_t g = *(++rgb_p);
-        const uint8_t b = *(++rgb_p);
+        const uint8_t r = *(rgb_p++);
+        const uint8_t g = *(rgb_p++);
+        const uint8_t b = *(rgb_p++);
 
         if (r == 255 && g == 255 && b == 255) {
-            *(hsl_p) = WHITE_HUE;
-            *(++hsl_p) = WHITE_SATURATION;
-            *(++hsl_p) = WHITE_LIGHTNESS;
+            *(hsl_p++) = WHITE_HUE;
+            *(hsl_p++) = WHITE_SATURATION;
+            *(hsl_p++) = WHITE_LIGHTNESS;
         } else if (!r && !g && !b) {
-            *(hsl_p) = 0;
-            *(++hsl_p) = 0;
-            *(++hsl_p) = 0;
+            *(hsl_p++) = 0;
+            *(hsl_p++) = 0;
+            *(hsl_p++) = 0;
         } else {
-            // This is the most expensive part of the RGB->HUSL chain
+            // This is the most expensive part of the RGB->HUSL pipeline
             const double l = *hsl_p;
             const double u = *(hsl_p+1);
             const double v = *(hsl_p+2);
             const double h = to_hue(u, v);
             const double s = to_saturation(l, u, v, h);
-            *(hsl_p) = h;
-            *(++hsl_p) = s;
-            *(++hsl_p) = l;
+            *(hsl_p++) = h;
+            *(hsl_p++) = s;
+            *(hsl_p++) = l;
         }
-    } // end OMP for
+    }
 }
 
 
@@ -516,6 +516,5 @@ static inline double to_light(double y_value) {
 // Conversion in the HUSL -> RGB direction
 ///////////////////////////////////////////
 
-
-
+// TODO (nphusl will fall back to Cython, NumExpr, and NumPy definitions)
 
