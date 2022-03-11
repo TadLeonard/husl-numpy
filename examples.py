@@ -1,6 +1,6 @@
 import random
 import sys
-import imread
+import imageio
 import numpy as np
 import nphusl
 from moviepy.editor import VideoClip
@@ -116,12 +116,12 @@ def microwave(img):
 
 if __name__ == "__main__":
     filename = sys.argv[1]
-    img = imread.imread(filename)
+    img = imageio.imread(filename)
     transforms = reveal_blue, reveal_blue_rgb, hue_watermelon,\
                  reveal_light, reveal_light_rgb, highlight_saturation
     for t in transforms:
         out, name = t(img)
-        imread.imwrite(name + ".jpg", out.astype(np.uint8))
+        imageio.imwrite(name + ".jpg", out.astype(np.uint8))
 
     n_frames = 300
     fps = 50
