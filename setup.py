@@ -98,12 +98,11 @@ classifiers = [
 
 ext = '.pyx' if args[Arg.CYTHONIZE] else '.c'
 extensions = []
-cython_compile_args = ["-fopenmp", "-O3", "-ffast-math"]
+cython_compile_args = ["-O3", "-ffast-math"]
 
 
 simd_compile_args = [
      "-ftree-vectorize",
-     "-ftree-vectorizer-verbose=2",
      "-std=c99",
      "-mtune=native",
 ] + cython_compile_args
@@ -130,15 +129,13 @@ if not args[Arg.NO_HUE_ATAN2_APPROX]:
 
 cython_ext = Extension("nphusl._cython_opt",
                        sources=["nphusl/_cython_opt"+ext],
-                       extra_compile_args=cython_compile_args,
-                       extra_link_args=["-fopenmp"])
+                       extra_compile_args=cython_compile_args)
 
 
 simd_ext = Extension("nphusl._simd_opt",
                      sources=simd_sources,
                      extra_compile_args=simd_compile_args,
-                     include_dirs=["nphusl/"],
-                     extra_link_args=["-fopenmp"])
+                     include_dirs=["nphusl/"])
 
 
 if not args[Arg.NO_CYTHON_EXT]:
