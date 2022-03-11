@@ -25,6 +25,7 @@ from functools import partial
 
 from .nphusl import to_husl, to_hue, to_rgb
 from .nphusl import SIMD, CYTHON, NUMEXPR, NUMPY
+from .transform import chunk, chunk_img
 from . import nphusl
 from . import constants
 
